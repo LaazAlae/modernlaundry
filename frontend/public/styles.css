@@ -325,3 +325,83 @@ footer > * {
         display: none !important;
     }
 }
+
+/* Add this to your public/styles.css file */
+
+/* Fixed position install button */
+.fixed-install-container {
+    position: fixed;
+    right: -180px; /* Initially hidden, only showing the icon part */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 240px;
+    height: 60px;
+    background-color: rgba(139, 0, 0, 0.85); /* Dark semi-transparent red */
+    border-radius: 8px 0 0 8px;
+    box-shadow: -3px 0 10px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    z-index: 1000;
+    transition: right 0.3s ease-in-out;
+    cursor: pointer;
+  }
+  
+  .fixed-install-container:hover {
+    right: 0; /* Slide in on hover */
+  }
+  
+  .fixed-install-container.visible {
+    right: 0; /* Fully visible state */
+  }
+  
+  .fixed-install-icon {
+    width: 60px;
+    height: 60px;
+    background-color: rgba(139, 0, 0, 0.95);
+    border-radius: 8px 0 0 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 24px;
+  }
+  
+  .fixed-install-text {
+    padding: 0 15px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  
+  .fixed-install-close {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1001;
+  }
+  
+  .fixed-install-close:hover {
+    color: white;
+  }
+  
+  /* Make sure this doesn't show in standalone mode */
+  @media (display-mode: standalone) {
+    .fixed-install-container {
+      display: none !important;
+    }
+  }
+  
+  /* Add a pulsing effect on the icon */
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  .pulse {
+    animation: pulse 2s infinite;
+  }

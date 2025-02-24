@@ -691,3 +691,130 @@ function showIOSInstructions() {
         localStorage.setItem('installPromptDismissed', 'true');
     });
 }
+
+
+
+// Create and manage the fixed position install button
+function createFixedInstallButton() {
+    // Create the HTML structure
+    const fixedInstallContainer = document.createElement('div');
+    fixedInstallContainer.className = 'fixed-install-container';
+    fixedInstallContainer.innerHTML = `
+      <div class="fixed-install-icon pulse">📱</div>
+      <div class="fixed-install-text">Add to Home Screen</div>
+      <div class="fixed-install-close">✕</div>
+    `;
+    
+    document.body.appendChild(fixedInstallContainer);
+    
+    // Add interaction logic
+    const closeButton = fixedInstallContainer.querySelector('.fixed-install-close');
+    closeButton.addEventListener('click', (e) => {
+      e.stopPropagation(); // Prevent triggering the container click
+      fixedInstallContainer.style.display = 'none';
+      
+      // Remember for 7 days
+      const now = new Date();
+      const expiry = now.getTime() + (7 * 24 * 60 * 60 * 1000); // 7 days
+      localStorage.setItem('installButtonDismissed', expiry);
+    });
+    
+    // Show full button after 3 seconds
+    setTimeout(() => {
+      fixedInstallContainer.classList.add('visible');
+      
+      // Stop pulsing after it's fully visible
+      setTimeout(() => {
+        const icon = fixedInstallContainer.querySelector('.fixed-install-icon');
+        icon.classList.remove('pulse');
+      }, 3000);
+    }, 3000);
+    
+    // Handle install action
+    fixedInstallContainer.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        // Show browser install prompt
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`User response to the install prompt: ${outcome}`);
+        
+        if (outcome === 'accepted') {
+          fixedInstallContainer.style.display = 'none';
+        }
+        
+        deferredPrompt = null;
+      } else {
+        // For iOS or other browsers that don't support beforeinstallprompt
+        showManualInstallInstructions();
+      }
+    });
+    
+    return fixedInstallContainer;
+  }
+  
+  // Check if we should show the button
+  function shouldShowInstallButton() {
+    // Don't show if already in standalone mode
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      return false;
+    }
+    
+    // Check if user dismissed it recently
+    const dismissed = localStorage.getItem('installButtonDismissed');
+    if (dismissed) {
+      const now = new Date().getTime();
+      if (parseInt(dismissed) > now) {
+        return false;
+      }
+    }
+    
+    return true;
+  }
+  
+  // Show manual install instructions for iOS and other browsers
+  function showManualInstallInstructions() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    
+    if (isIOS) {
+      // iOS-specific instructions
+      alert('To install this app:\n\n1. Tap the share button ⎙ at the bottom of the screen\n2. Scroll down and tap "Add to Home Screen"\n3. Tap "Add" in the top right corner');
+    } else {
+      // Generic instructions for other browsers
+      alert('To install this app:\n\n1. Open your browser menu (usually three dots in the top right)\n2. Look for "Add to Home Screen" or "Install App" option\n3. Follow the on-screen instructions');
+    }
+  }
+  
+  // Track installation availability
+  let fixedInstallButton;
+  
+  // Listen for beforeinstallprompt event
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    if (shouldShowInstallButton() && !fixedInstallButton) {
+      fixedInstallButton = createFixedInstallButton();
+    }
+  });
+  
+  // If app is installed, track it
+  window.addEventListener('appinstalled', () => {
+    console.log('App was installed');
+    localStorage.setItem('appInstalled', 'true');
+    
+    // Hide the install button if it exists
+    if (fixedInstallButton) {
+      fixedInstallButton.style.display = 'none';
+    }
+  });
+  
+  // Initialize on page load
+  window.addEventListener('DOMContentLoaded', () => {
+    // Check if we should show the button for browsers that don't fire beforeinstallprompt
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    
+    if (!isStandalone && shouldShowInstallButton() && (isIOS || !deferredPrompt)) {
+      fixedInstallButton = createFixedInstallButton();
+    }
+  });
