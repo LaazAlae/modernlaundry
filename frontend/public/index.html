@@ -45,6 +45,7 @@
         <!-- Timer Modal -->
         <div id="timerModal" class="modal">
             <div class="modal-content">
+                <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
                 <h2 id="modalTitle" class="text-2xl font-bold mb-4"></h2>
                 <p class="mb-4 text-gray-300">Select time needed (5-90 minutes)</p>
                 <input type="number" id="timeInput" min="5" max="90" value="30" 
@@ -64,6 +65,7 @@
         <!-- Email Modal -->
         <div id="emailModal" class="modal">
             <div class="modal-content">
+                <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
                 <h2 class="text-2xl font-bold mb-4">Get Notifications</h2>
                 <p class="mb-4 text-gray-300">Enter your email to receive availability notifications</p>
                 <input type="email" id="emailInput" placeholder="Enter your email" 
@@ -80,6 +82,7 @@
         <!-- Subscribe Modal -->
         <div id="subscribeModal" class="modal">
             <div class="modal-content">
+                <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
                 <h2 id="subscribeTitle" class="text-2xl font-bold mb-4"></h2>
                 <p class="mb-4 text-gray-300">Receive notification 5 minutes before completion</p>
                 <input type="email" id="subscribeEmail" placeholder="Enter your email" 
@@ -111,6 +114,13 @@
                     .catch(err => console.log('ServiceWorker registration failed: ', err));
             });
         }
+        
+        // Add event listeners for the modal close buttons
+        document.querySelectorAll('.modal-close').forEach(button => {
+            button.addEventListener('click', function() {
+                this.closest('.modal').style.display = 'none';
+            });
+        });
     </script>
 </body>
 </html>

@@ -1,18 +1,51 @@
 {
-    "name": "Flint Laundry Status",
-    "short_name": "Flint Laundry",
+    "name": "Flint laundry Status",
+    "short_name": "laundry",
+    "description": "Track laundry machine availability in real-time",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#000000",
+    "background_color": "#0a0a0a",
+    "theme_color": "#0a0a0a",
+    "orientation": "portrait",
     "icons": [
       {
-        "src": "laundry.png",
-        "sizes": "192x192",
+        "src": "/laundry.png",
+        "sizes": "72x72",
         "type": "image/png"
       },
       {
-        "src": "laundry.png",
+        "src": "/laundry.png",
+        "sizes": "96x96",
+        "type": "image/png"
+      },
+      {
+        "src": "/laundry.png",
+        "sizes": "128x128",
+        "type": "image/png"
+      },
+      {
+        "src": "/laundry.png",
+        "sizes": "144x144",
+        "type": "image/png"
+      },
+      {
+        "src": "/laundry.png",
+        "sizes": "152x152",
+        "type": "image/png"
+      },
+      {
+        "src": "/laundry.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any maskable"
+      },
+      {
+        "src": "/laundry.png",
+        "sizes": "384x384",
+        "type": "image/png"
+      },
+      {
+        "src": "/laundry.png",
         "sizes": "512x512",
         "type": "image/png"
       }
