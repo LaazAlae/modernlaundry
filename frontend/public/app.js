@@ -489,3 +489,201 @@ document.querySelectorAll('.modal-close').forEach(button => {
         this.closest('.modal').style.display = 'none';
     });
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Add this to your public/app.js file
+
+// PWA Installation Prompt
+document.addEventListener('DOMContentLoaded', () => {
+    // Only show the prompt if we're not already in standalone mode
+    // and if the user hasn't dismissed it before
+    if (!window.matchMedia('(display-mode: standalone)').matches && 
+        !localStorage.getItem('installPromptDismissed')) {
+        
+        // Check if it's a mobile device
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            // Detect iOS (Safari)
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            
+            // Create the modal element
+            const modal = document.createElement('div');
+            modal.id = 'installModal';
+            modal.className = 'modal';
+            modal.style.display = 'flex';
+            
+            // Different content based on platform
+            if (isIOS) {
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+                        <h2 class="text-2xl font-bold mb-4">Install This App</h2>
+                        <p class="mb-4 text-gray-300">Add Flint Laundry to your home screen for quick access.</p>
+                        <div class="bg-black rounded-lg p-4 mb-6">
+                            <p class="text-gray-300 mb-2">1. Tap the share icon</p>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-blue-400">
+                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                                <polyline points="16 6 12 2 8 6"></polyline>
+                                <line x1="12" y1="2" x2="12" y2="15"></line>
+                            </svg>
+                            <p class="text-gray-300 mb-2 mt-2">2. Scroll and tap "Add to Home Screen"</p>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-green-400">
+                                <path d="M12 5v14"></path>
+                                <path d="M5 12h14"></path>
+                            </svg>
+                        </div>
+                        <div class="modal-buttons">
+                            <button id="dismissInstallButton" 
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                // Android or other devices
+                modal.innerHTML = `
+                    <div class="modal-content">
+                        <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
+                        <h2 class="text-2xl font-bold mb-4">Install This App</h2>
+                        <p class="mb-4 text-gray-300">Add Flint Laundry to your home screen for quick access:</p>
+                        
+                        <div id="androidInstructions" class="bg-black rounded-lg p-4 mb-6">
+                            <p class="text-gray-300 mb-2">1. Tap the menu icon</p>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-blue-400">
+                                <line x1="3" y1="12" x2="21" y2="12"></line>
+                                <line x1="3" y1="6" x2="21" y2="6"></line>
+                                <line x1="3" y1="18" x2="21" y2="18"></line>
+                            </svg>
+                            <p class="text-gray-300 mb-2 mt-2">2. Select "Install app" or "Add to Home screen"</p>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-green-400">
+                                <path d="M12 5v14"></path>
+                                <path d="M5 12h14"></path>
+                            </svg>
+                        </div>
+                        
+                        <div class="modal-buttons">
+                            <button id="installPWAButton" 
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors mb-2">
+                                Install Now
+                            </button>
+                            <button id="dismissInstallButton" 
+                                    class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            document.body.appendChild(modal);
+            
+            // Close button functionality
+            modal.querySelector('.modal-close').addEventListener('click', () => {
+                modal.style.display = 'none';
+                localStorage.setItem('installPromptDismissed', 'true');
+            });
+            
+            // Dismiss button functionality
+            document.getElementById('dismissInstallButton').addEventListener('click', () => {
+                modal.style.display = 'none';
+                localStorage.setItem('installPromptDismissed', 'true');
+            });
+            
+            // Install button for Android (uses the beforeinstallprompt event)
+            const installButton = document.getElementById('installPWAButton');
+            if (installButton && window.deferredPrompt) {
+                installButton.addEventListener('click', async () => {
+                    if (window.deferredPrompt) {
+                        window.deferredPrompt.prompt();
+                        const { outcome } = await window.deferredPrompt.userChoice;
+                        if (outcome === 'accepted') {
+                            console.log('User accepted the installation');
+                            modal.style.display = 'none';
+                        }
+                        window.deferredPrompt = null;
+                    } else {
+                        // Show manual instructions if the install prompt isn't available
+                        document.getElementById('androidInstructions').style.display = 'block';
+                    }
+                });
+            } else if (installButton) {
+                // If no deferred prompt is available, hide the install button
+                installButton.style.display = 'none';
+            }
+            
+            // Close modal when clicking outside of it
+            window.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                    localStorage.setItem('installPromptDismissed', 'true');
+                }
+            });
+        }
+    }
+});
+
+// Add a reminder button that stays visible 
+document.addEventListener('DOMContentLoaded', () => {
+    // Only if not already in standalone mode and installation banner was dismissed
+    if (!window.matchMedia('(display-mode: standalone)').matches && 
+        localStorage.getItem('installPromptDismissed')) {
+        
+        // Check if it's a mobile device
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            const installReminder = document.createElement('div');
+            installReminder.className = 'fixed-install-container';
+            installReminder.innerHTML = `
+                <div class="fixed-install-icon pulse">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 9l-7 7-7-7"></path>
+                    </svg>
+                </div>
+                <div class="fixed-install-text">Install App</div>
+                <span class="fixed-install-close">&times;</span>
+            `;
+            
+            document.body.appendChild(installReminder);
+            
+            // Show installation instructions when clicked
+            installReminder.addEventListener('click', (e) => {
+                if (!e.target.closest('.fixed-install-close')) {
+                    localStorage.removeItem('installPromptDismissed');
+                    window.location.reload();
+                }
+            });
+            
+            // Close button functionality
+            installReminder.querySelector('.fixed-install-close').addEventListener('click', (e) => {
+                e.stopPropagation();
+                installReminder.remove();
+                localStorage.setItem('installPromptDismissedPermanently', 'true');
+            });
+            
+            // Make reminder visible after 3 seconds
+            setTimeout(() => {
+                installReminder.classList.add('visible');
+            }, 3000);
+        }
+    }
+});

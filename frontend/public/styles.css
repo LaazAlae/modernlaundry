@@ -424,3 +424,118 @@ footer > * {
   .pulse {
     animation: pulse 2s infinite;
   }
+
+
+
+
+
+
+
+
+
+
+
+
+  /* Add these styles to your existing CSS file */
+
+/* Fixed position floating install button */
+.fixed-install-container {
+    position: fixed;
+    right: -180px; /* Initially hidden, only showing the icon part */
+    bottom: 100px;
+    width: 180px;
+    height: 50px;
+    background-color: #f2bc47;
+    border-radius: 25px 0 0 25px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    z-index: 1000;
+    transition: right 0.3s ease-in-out;
+    cursor: pointer;
+  }
+  
+  .fixed-install-container:hover {
+    right: 0; /* Slide in on hover */
+  }
+  
+  .fixed-install-container.visible {
+    right: 0; /* Fully visible state */
+  }
+  
+  .fixed-install-icon {
+    width: 50px;
+    height: 50px;
+    background-color: #f2bc47;
+    border-radius: 25px 0 0 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: black;
+    font-size: 24px;
+  }
+  
+  .fixed-install-text {
+    padding: 0 15px;
+    color: black;
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  
+  .fixed-install-close {
+    position: absolute;
+    top: 2px;
+    right: 10px;
+    color: rgba(0, 0, 0, 0.7);
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1001;
+    padding: 5px;
+  }
+  
+  .fixed-install-close:hover {
+    color: black;
+  }
+  
+  /* Make sure this doesn't show in standalone mode */
+  @media (display-mode: standalone) {
+    .fixed-install-container {
+      display: none !important;
+    }
+  }
+  
+  /* Add a pulsing effect on the icon */
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  
+  .pulse {
+    animation: pulse 2s infinite;
+  }
+  
+  /* Custom styles for the install modal */
+  #installModal .modal-content {
+    max-width: 340px;
+  }
+  
+  #installModal svg {
+    display: block;
+    margin: 8px auto;
+  }
+  
+  /* Platform-specific instruction styling */
+  #androidInstructions, 
+  #iosInstructions {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Make modal content scrollable on smaller screens */
+  @media (max-height: 600px) {
+    #installModal .modal-content {
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+  }
