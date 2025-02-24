@@ -478,7 +478,7 @@ async function openTimerModal(machineId) {
 function updateLastUpdated() {
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    document.getElementById('footerText').textContent = `updated: ${time} | `;
+    document.getElementById('footerText').textContent = `updated: ${time}`;
 }
 
 
