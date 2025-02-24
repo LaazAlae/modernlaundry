@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Favicon for browser tabs -->
+    <link rel="icon" type="image/x-icon" href="/laundry.ico">
+    <link rel="shortcut icon" type="image/x-icon" href="/laundry.ico">
+    <!-- Icons for PWA -->
+    <link rel="apple-touch-icon" href="/laundry.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flint Laundry Status</title>
+    <link rel="manifest" href="/manifest.json">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/path/to/font-awesome/css/all.min.css">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-black text-white min-h-screen">
+    <div class="page-container">
+        <div class="light-effect"></div>
+        
+        <header class="relative z-10 mb-12 text-center">
+            <div class="relative">
+                <h1 class="text-4xl md:text-5xl font-bold mb-3 font-playfair glow-text" style="color: #f4c152 !important;">
+                    Flint Laundry Status
+                </h1>
+                <p class="text-sm text-gray-300 mb-6 md:mb-8">
+                    Real-time availability of washing & drying machines
+                </p>
+                <button id="notifyBtn" class="text-white text-2xl p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-white">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.402-1.402A5.978 5.978 0 0118 12V9a6 6 0 10-12 0v3c0 1.048-.34 2.016-.902 2.773L4 17h5m6 0a3 3 0 11-6 0h6z" />
+                    </svg>
+                </button>
+            </div>         
+        </header>
+
+        <div id="machines" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8"></div>
+
+        <!-- Timer Modal -->
+        <div id="timerModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalTitle" class="text-2xl font-bold mb-4"></h2>
+                <p class="mb-4 text-gray-300">Select time needed (5-90 minutes)</p>
+                <input type="number" id="timeInput" min="5" max="90" value="30" 
+                       class="modal-input">
+                <div class="modal-buttons">
+                    <button id="startButton" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                        Start
+                    </button>
+                </div>
+                <p id="errorMessage" class="text-red-500 mt-2 hidden">
+                    Please enter a time between 5 and 90 minutes.
+                </p>
+            </div>
+        </div>
+
+        <!-- Email Modal -->
+        <div id="emailModal" class="modal">
+            <div class="modal-content">
+                <h2 class="text-2xl font-bold mb-4">Get Notifications</h2>
+                <p class="mb-4 text-gray-300">Enter your email to receive availability notifications</p>
+                <input type="email" id="emailInput" placeholder="Enter your email" 
+                       class="modal-input">
+                <div class="modal-buttons">
+                    <button id="saveEmailButton" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                        Save
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subscribe Modal -->
+        <div id="subscribeModal" class="modal">
+            <div class="modal-content">
+                <h2 id="subscribeTitle" class="text-2xl font-bold mb-4"></h2>
+                <p class="mb-4 text-gray-300">Receive notification 5 minutes before completion</p>
+                <input type="email" id="subscribeEmail" placeholder="Enter your email" 
+                       class="modal-input">
+                <div class="modal-buttons">
+                    <button id="subscribeButton" 
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                        Notify Me
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <span id="footerText" class="text-gray-400">Updated: --:--</span>
+        <span class="text-gray-600">|</span>
+        <a href="mailto:alaelaaz@buffalo.edu" class="text-gray-400 hover:text-blue-400 transition-colors">
+            alaelaaz@buffalo.edu
+        </a>
+    </footer>
+
+    <script src="/app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => console.log('ServiceWorker registered'))
+                    .catch(err => console.log('ServiceWorker registration failed: ', err));
+            });
+        }
+    </script>
+</body>
+</html>

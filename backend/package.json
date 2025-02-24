@@ -1,0 +1,21 @@
+{
+    "name": "laundry-app-backend",
+    "version": "1.0.0",
+    "description": "Backend for the Flint Laundry Status app",
+    "main": "src/server.js",
+    "scripts": {
+      "start": "node src/server.js",
+      "dev": "nodemon src/server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "dotenv": "^16.0.3",
+        "express": "^4.18.2",
+        "helmet": "^7.1.0",
+        "mongoose": "^7.0.3",
+        "nodemailer": "^6.9.1"
+    },
+    "devDependencies": {
+      "nodemon": "^2.0.22"
+    }
+  }
