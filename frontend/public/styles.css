@@ -216,3 +216,112 @@ footer > * {
         font-size: 0.75rem;
     }
 }
+
+
+/* Add this to your public/styles.css file */
+
+.install-prompt, .ios-install-prompt {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 400px;
+    z-index: 1000;
+    display: none;
+    animation: slideUp 0.3s ease-out forwards;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translate(-50%, 100%);
+        opacity: 0;
+    }
+    to {
+        transform: translate(-50%, 0);
+        opacity: 1;
+    }
+}
+
+.install-container {
+    background-color: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.install-content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.install-icon {
+    font-size: 3rem;
+    margin-bottom: 10px;
+}
+
+.install-text {
+    margin-bottom: 15px;
+}
+
+.install-text h3 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.install-text p {
+    margin: 0 0 5px 0;
+    color: #666;
+    font-size: 0.9rem;
+}
+
+.install-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 100%;
+    margin-bottom: 10px;
+    transition: background-color 0.2s;
+}
+
+.install-button:hover {
+    background-color: #0069d9;
+}
+
+.dismiss-button {
+    background-color: transparent;
+    color: #666;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    width: 100%;
+}
+
+.dismiss-button:hover {
+    background-color: #f3f3f3;
+}
+
+.share-icon {
+    display: inline-block;
+    font-size: 1.2rem;
+    vertical-align: middle;
+}
+
+/* Additional styles for different device types */
+@media (display-mode: standalone) {
+    .install-prompt, .ios-install-prompt {
+        display: none !important;
+    }
+}

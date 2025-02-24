@@ -1,5 +1,5 @@
 const API_URL = '/api';
-let deferredPrompt;
+
 
 const MACHINES = {
     'washer1': { name: 'Washer 1', defaultTime: 30 },
@@ -560,4 +560,134 @@ function updateLastUpdated() {
     const now = new Date();
     const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     document.getElementById('footerText').textContent = `updated: ${time} | `;
+}
+
+
+
+
+// Add this to your public/app.js file
+
+// Track installation status
+let deferredPrompt;
+const installButton = document.createElement('div');
+
+function createInstallPrompt() {
+    installButton.className = 'install-prompt';
+    installButton.innerHTML = `
+        <div class="install-container">
+            <div class="install-content">
+                <div class="install-icon">📱</div>
+                <div class="install-text">
+                    <h3>Add to Home Screen</h3>
+                    <p>Install this app on your device for quick access anytime!</p>
+                </div>
+                <button class="install-button">Install Now</button>
+                <button class="dismiss-button">Maybe Later</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(installButton);
+    
+    // Handle install button click
+    installButton.querySelector('.install-button').addEventListener('click', async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            deferredPrompt = null;
+        }
+        hideInstallPrompt();
+        localStorage.setItem('installPromptDismissed', 'true');
+    });
+    
+    // Handle dismiss button click
+    installButton.querySelector('.dismiss-button').addEventListener('click', () => {
+        hideInstallPrompt();
+        // Remember the user dismissed it for 3 days
+        const now = new Date();
+        const expiry = now.getTime() + (3 * 24 * 60 * 60 * 1000); // 3 days
+        localStorage.setItem('installPromptDismissed', expiry);
+    });
+}
+
+function showInstallPrompt() {
+    if (installButton.parentElement !== document.body) {
+        document.body.appendChild(installButton);
+    }
+    // Slight delay to show the prompt for better user experience
+    setTimeout(() => {
+        installButton.style.display = 'block';
+    }, 2000);
+}
+
+function hideInstallPrompt() {
+    installButton.style.display = 'none';
+}
+
+function checkIfShouldShowPrompt() {
+    const dismissed = localStorage.getItem('installPromptDismissed');
+    if (dismissed === 'true') {
+        return false;
+    } else if (dismissed) {
+        // Check if the dismissal has expired
+        const now = new Date().getTime();
+        if (parseInt(dismissed) > now) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Listen for beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    if (checkIfShouldShowPrompt()) {
+        createInstallPrompt();
+        showInstallPrompt();
+    }
+});
+
+// If already installed, log it
+window.addEventListener('appinstalled', () => {
+    console.log('App was installed');
+    hideInstallPrompt();
+    localStorage.setItem('appInstalled', 'true');
+});
+
+// Check if we should show manual instructions
+window.addEventListener('DOMContentLoaded', () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    
+    // Show iOS-specific instructions
+    if (isIOS && isSafari && !isStandalone && checkIfShouldShowPrompt()) {
+        showIOSInstructions();
+    }
+});
+
+function showIOSInstructions() {
+    const iosPrompt = document.createElement('div');
+    iosPrompt.className = 'ios-install-prompt';
+    iosPrompt.innerHTML = `
+        <div class="install-container">
+            <div class="install-content">
+                <div class="install-icon">📱</div>
+                <div class="install-text">
+                    <h3>Install on iOS</h3>
+                    <p>1. Tap the share button <span class="share-icon">⎙</span> below</p>
+                    <p>2. Scroll down and tap "Add to Home Screen"</p>
+                </div>
+                <button class="dismiss-button">Got it</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(iosPrompt);
+    
+    iosPrompt.querySelector('.dismiss-button').addEventListener('click', () => {
+        iosPrompt.style.display = 'none';
+        localStorage.setItem('installPromptDismissed', 'true');
+    });
 }
