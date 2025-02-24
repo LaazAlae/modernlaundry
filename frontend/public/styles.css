@@ -9,6 +9,17 @@ body {
     padding-bottom: 20px; 
 }
 
+/* Hide scrollbars everywhere while maintaining functionality */
+* {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;     /* Firefox */
+}
+
+/* Hide scrollbars for Chrome, Safari and Opera */
+*::-webkit-scrollbar {
+    display: none;
+}
+
 .page-container {
     max-width: 1200px;
     margin: 0 auto;
@@ -116,6 +127,7 @@ body {
     width: 90%;
     max-width: 420px;
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    position: relative;
 }
 
 .modal-content h2 {
@@ -138,6 +150,12 @@ body {
     justify-content: flex-end;
 }
 
+/* Modal close button styles */
+.modal-close {
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
 /* Animations */
 @keyframes glow {
     0% { text-shadow: 0 0 10px rgba(251, 191, 36, 0.3); }
@@ -155,7 +173,7 @@ footer {
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(23, 23, 23, 0.427);
+    background: rgba(23, 23, 23, 0.582);
     padding: 0.75rem 1rem;
     backdrop-filter: blur(10px);
     z-index: 30;
@@ -164,7 +182,6 @@ footer {
     align-items: center;
     white-space: nowrap;
     overflow-x: auto;
-    padding-bottom: 20px;
 }
 
 footer > * {
