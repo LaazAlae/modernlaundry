@@ -122,5 +122,126 @@
             });
         });
     </script>
+
+    <script>
+        (function() {
+        // Check if we're in standalone mode (already installed)
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log("App running in standalone mode - no install prompt needed");
+            return;
+        }
+        
+        // Check if user previously dismissed the prompt
+        if (localStorage.getItem('installPromptDismissed')) {
+            console.log("Install prompt previously dismissed");
+            return;
+        }
+        
+        // Force show the prompt for mobile devices
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        console.log("Device detection:", { isIOS, isMobile });
+        
+        // Only proceed for mobile devices
+        if (!isMobile) return;
+        
+        // Create the modal element
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.right = '0';
+        modal.style.bottom = '0';
+        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        modal.style.backdropFilter = 'blur(5px)';
+        modal.style.display = 'flex';
+        modal.style.justifyContent = 'center';
+        modal.style.alignItems = 'center';
+        modal.style.zIndex = '9999';
+        
+        // Different content based on platform
+        if (isIOS) {
+            modal.innerHTML = `
+            <div style="background: #171717; border-radius: 1rem; padding: 2rem; width: 90%; max-width: 340px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                <button id="closeInstallBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: white;">Install Flint Laundry</h2>
+                <p style="margin-bottom: 1rem; color: #ccc;">Add this app to your home screen for quick access:</p>
+                <div style="background: #000; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
+                <p style="color: #ccc; margin-bottom: 0.5rem;">1. Tap the share icon <span style="font-size: 1.2rem">↑</span></p>
+                <div style="text-align: center; margin: 0.5rem 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+                    <polyline points="16 6 12 2 8 6"></polyline>
+                    <line x1="12" y1="2" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <p style="color: #ccc; margin-bottom: 0.5rem; margin-top: 0.5rem;">2. Scroll down and tap "Add to Home Screen"</p>
+                <div style="text-align: center; margin: 0.5rem 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 5v14"></path>
+                    <path d="M5 12h14"></path>
+                    </svg>
+                </div>
+                </div>
+                <div style="text-align: right;">
+                <button id="dismissInstallBtn" style="background-color: #374151; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer;">
+                    Dismiss
+                </button>
+                </div>
+            </div>
+            `;
+        } else {
+            // Android version
+            modal.innerHTML = `
+            <div style="background: #171717; border-radius: 1rem; padding: 2rem; width: 90%; max-width: 340px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+                <button id="closeInstallBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
+                <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: white;">Install Flint Laundry</h2>
+                <p style="margin-bottom: 1rem; color: #ccc;">Add this app to your home screen:</p>
+                <div style="background: #000; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
+                <p style="color: #ccc; margin-bottom: 0.5rem;">1. Tap the menu icon</p>
+                <div style="text-align: center; margin: 0.5rem 0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </div>
+                <p style="color: #ccc; margin-bottom: 0.5rem; margin-top: 0.5rem;">2. Select "Install app" or "Add to Home screen"</p>
+                </div>
+                <div style="display: flex; justify-content: flex-end;">
+                <button id="dismissInstallBtn" style="background-color: #374151; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer;">
+                    Dismiss
+                </button>
+                </div>
+            </div>
+            `;
+        }
+        
+        // Add modal to body after a slight delay to ensure page is loaded
+        setTimeout(() => {
+            document.body.appendChild(modal);
+            
+            // Set up event handlers
+            document.getElementById('closeInstallBtn').addEventListener('click', () => {
+            modal.remove();
+            localStorage.setItem('installPromptDismissed', 'true');
+            });
+            
+            document.getElementById('dismissInstallBtn').addEventListener('click', () => {
+            modal.remove();
+            localStorage.setItem('installPromptDismissed', 'true');
+            });
+            
+            // Close when clicking outside
+            modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                localStorage.setItem('installPromptDismissed', 'true');
+            }
+            });
+        }, 1500); // Wait 1.5 seconds after page load
+        })();
+    </script>
 </body>
 </html>
