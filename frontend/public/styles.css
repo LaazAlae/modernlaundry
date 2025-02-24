@@ -164,7 +164,7 @@ footer {
     align-items: center;
     white-space: nowrap;
     overflow-x: auto;
-    padding-bottom: 10px;
+    padding-bottom: 20px;
 }
 
 footer > * {
