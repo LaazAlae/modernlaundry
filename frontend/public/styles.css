@@ -155,7 +155,7 @@ footer {
     bottom: 0;
     left: 0;
     right: 0;
-    background: rgba(23, 23, 23, 0.582);
+    background: rgba(23, 23, 23, 0.427);
     padding: 0.75rem 1rem;
     backdrop-filter: blur(10px);
     z-index: 30;
@@ -164,6 +164,7 @@ footer {
     align-items: center;
     white-space: nowrap;
     overflow-x: auto;
+    padding-bottom: 10px;
 }
 
 footer > * {
