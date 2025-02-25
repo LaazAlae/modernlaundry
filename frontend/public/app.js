@@ -1,66 +1,3 @@
-function resetInstallationFlags() {
-    // Clear any installation flags in localStorage
-    localStorage.removeItem('installPromptDismissed');
-    localStorage.removeItem('installPromptDismissedPermanently');
-    
-    // Force reload to recheck installation eligibility
-    window.location.reload();
-  }
-
-
-  function forceShowIOSInstructions() {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    // If it's iOS and a mobile device
-    if (isIOS && isMobile) {
-      const modal = document.createElement('div');
-      modal.id = 'installModal';
-      modal.className = 'modal';
-      modal.style.display = 'flex';
-      
-      modal.innerHTML = `
-        <div class="modal-content">
-          <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-          <h2 class="text-2xl font-bold mb-4">Install This App</h2>
-          <p class="mb-4 text-gray-300">Add Flint Laundry to your home screen for quick access.</p>
-          <div class="bg-black rounded-lg p-4 mb-6">
-            <p class="text-gray-300 mb-2">1. Tap the share icon</p>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-blue-400">
-              <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-              <polyline points="16 6 12 2 8 6"></polyline>
-              <line x1="12" y1="2" x2="12" y2="15"></line>
-            </svg>
-            <p class="text-gray-300 mb-2 mt-2">2. Scroll and tap "Add to Home Screen"</p>
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-green-400">
-              <path d="M12 5v14"></path>
-              <path d="M5 12h14"></path>
-            </svg>
-          </div>
-          <div class="modal-buttons">
-            <button id="dismissInstallButton" 
-                  class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-              Dismiss
-            </button>
-          </div>
-        </div>
-      `;
-      
-      document.body.appendChild(modal);
-      
-      // Add event listeners
-      modal.querySelector('.modal-close').addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-      
-      document.getElementById('dismissInstallButton').addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-    }
-  }
-
-
-
 function createMachineHTML(machine, savedState) {
     const now = new Date();
     const endTime = machine.endTime ? new Date(machine.endTime) : null;
@@ -157,26 +94,6 @@ document.addEventListener('DOMContentLoaded', () => {
             this.closest('.modal').style.display = 'none';
         });
     });
-    
-    // Add installation reset buttons to footer
-    const footer = document.querySelector('footer');
-    if (footer) {
-        // Reset installation button
-        const resetButton = document.createElement('button');
-        resetButton.id = 'resetInstallButton';
-        resetButton.className = 'text-xs text-gray-500 ml-2';
-        resetButton.textContent = 'Reset Install';
-        resetButton.addEventListener('click', resetInstallationFlags);
-        footer.appendChild(resetButton);
-        
-        // Show iOS installation instructions button
-        const showInstallButton = document.createElement('button');
-        showInstallButton.id = 'showInstallButton';
-        showInstallButton.className = 'text-xs text-gray-500 ml-2';
-        showInstallButton.textContent = 'Show Install';
-        showInstallButton.addEventListener('click', forceShowIOSInstructions);
-        footer.appendChild(showInstallButton);
-    }
 });
 
 // Toast notification function (was missing)
