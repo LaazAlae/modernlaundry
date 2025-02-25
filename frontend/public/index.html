@@ -14,7 +14,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/path/to/font-awesome/css/all.min.css">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <link rel="apple-touch-icon" href="/icons/icon-1024x1024.png">
@@ -29,20 +28,24 @@
                 <h1 class="text-4xl md:text-5xl font-bold mb-3 font-playfair glow-text" style="color: #f2bc47 !important;">
                     Flint Laundry Status
                 </h1>
-                <p class="text-sm text-gray-300 mb-6 md:mb-8">
-                    Real-time availability of washing & drying machines
-                </p>
-                <button id="notifyBtn" class="text-white text-2xl p-3 rounded-full bg-gray-800 hover:bg-gray-700 transition">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-6 h-6 text-white">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.402-1.402A5.978 5.978 0 0118 12V9a6 6 0 10-12 0v3c0 1.048-.34 2.016-.902 2.773L4 17h5m6 0a3 3 0 11-6 0h6z" />
-                    </svg>
-                </button>
+                <div class="flex items-center justify-center">
+                    <p class="text-sm text-gray-300 mr-3">
+                        Real-time availability of washing & drying machines
+                    </p>
+                    <!-- Settings button positioned next to the title -->
+                    <button id="settingsBtn" class="text-white p-2 rounded-full bg-gray-800 hover:bg-gray-700 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-5 h-5 text-white">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+                </div>
             </div>         
         </header>
 
         <div id="machines" class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8"></div>
 
-        <!-- Timer Modal -->
+        <!-- Timer Modal - Updated with email input section -->
         <div id="timerModal" class="modal">
             <div class="modal-content">
                 <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
@@ -50,6 +53,16 @@
                 <p class="mb-4 text-gray-300">Select time needed (5-90 minutes)</p>
                 <input type="number" id="timeInput" min="5" max="90" value="30" 
                        class="modal-input">
+                
+                <!-- New section for email request that shows only if no email saved -->
+                <div id="emailRequestSection" class="mt-4 mb-4 p-4 bg-gray-800 rounded-lg" style="display: none;">
+                    <h3 class="text-xl font-bold mb-2">You only have to do this once</h3>
+                    <p class="text-gray-300 mb-3">Please input your email so you get a notification before this machine is done</p>
+                    <input type="email" id="timerEmailInput" placeholder="Enter your email" 
+                           class="modal-input mb-2">
+                    <p class="text-sm text-gray-400">You can dismiss this and still use the machine</p>
+                </div>
+                
                 <div class="modal-buttons">
                     <button id="startButton" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
@@ -62,35 +75,18 @@
             </div>
         </div>
 
-        <!-- Email Modal -->
+        <!-- Email Modal - Updated for Settings -->
         <div id="emailModal" class="modal">
             <div class="modal-content">
                 <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-                <h2 class="text-2xl font-bold mb-4">Get Notifications</h2>
-                <p class="mb-4 text-gray-300">Enter your email to receive availability notifications</p>
+                <h2 id="emailModalTitle" class="text-2xl font-bold mb-4">Settings</h2>
+                <p id="emailModalDesc" class="mb-4 text-gray-300">Enter your email to receive notifications</p>
                 <input type="email" id="emailInput" placeholder="Enter your email" 
                        class="modal-input">
                 <div class="modal-buttons">
                     <button id="saveEmailButton" 
                             class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
                         Save
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Subscribe Modal -->
-        <div id="subscribeModal" class="modal">
-            <div class="modal-content">
-                <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-                <h2 id="subscribeTitle" class="text-2xl font-bold mb-4"></h2>
-                <p class="mb-4 text-gray-300">Receive notification 5 minutes before completion</p>
-                <input type="email" id="subscribeEmail" placeholder="Enter your email" 
-                       class="modal-input">
-                <div class="modal-buttons">
-                    <button id="subscribeButton" 
-                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                        Notify Me
                     </button>
                 </div>
             </div>
@@ -105,6 +101,9 @@
         </a>
     </footer>
 
+    <!-- Toast container for notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
     <script src="/app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
@@ -114,134 +113,6 @@
                     .catch(err => console.log('ServiceWorker registration failed: ', err));
             });
         }
-        
-        // Add event listeners for the modal close buttons
-        document.querySelectorAll('.modal-close').forEach(button => {
-            button.addEventListener('click', function() {
-                this.closest('.modal').style.display = 'none';
-            });
-        });
-    </script>
-
-    <script>
-        (function() {
-        // Check if we're in standalone mode (already installed)
-        if (window.matchMedia('(display-mode: standalone)').matches) {
-            console.log("App running in standalone mode - no install prompt needed");
-            return;
-        }
-        
-        // Check if user previously dismissed the prompt
-        if (localStorage.getItem('installPromptDismissed')) {
-            console.log("Install prompt previously dismissed");
-            return;
-        }
-        
-        // Force show the prompt for mobile devices
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        console.log("Device detection:", { isIOS, isMobile });
-        
-        // Only proceed for mobile devices
-        if (!isMobile) return;
-        
-        // Create the modal element
-        const modal = document.createElement('div');
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.right = '0';
-        modal.style.bottom = '0';
-        modal.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        modal.style.backdropFilter = 'blur(5px)';
-        modal.style.display = 'flex';
-        modal.style.justifyContent = 'center';
-        modal.style.alignItems = 'center';
-        modal.style.zIndex = '9999';
-        
-        // Different content based on platform
-        if (isIOS) {
-            modal.innerHTML = `
-            <div style="background: #171717; border-radius: 1rem; padding: 2rem; width: 90%; max-width: 340px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-                <button id="closeInstallBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
-                <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: white;">Install Flint Laundry</h2>
-                <p style="margin-bottom: 1rem; color: #ccc;">Add this app to your home screen for quick access:</p>
-                <div style="background: #000; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="color: #ccc; margin-bottom: 0.5rem;">1. Tap the share icon <span style="font-size: 1.2rem">↑</span></p>
-                <div style="text-align: center; margin: 0.5rem 0;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                    <polyline points="16 6 12 2 8 6"></polyline>
-                    <line x1="12" y1="2" x2="12" y2="15"></line>
-                    </svg>
-                </div>
-                <p style="color: #ccc; margin-bottom: 0.5rem; margin-top: 0.5rem;">2. Scroll down and tap "Add to Home Screen"</p>
-                <div style="text-align: center; margin: 0.5rem 0;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 5v14"></path>
-                    <path d="M5 12h14"></path>
-                    </svg>
-                </div>
-                </div>
-                <div style="text-align: right;">
-                <button id="dismissInstallBtn" style="background-color: #374151; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer;">
-                    Dismiss
-                </button>
-                </div>
-            </div>
-            `;
-        } else {
-            // Android version
-            modal.innerHTML = `
-            <div style="background: #171717; border-radius: 1rem; padding: 2rem; width: 90%; max-width: 340px; position: relative; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
-                <button id="closeInstallBtn" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer;">&times;</button>
-                <h2 style="font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; color: white;">Install Flint Laundry</h2>
-                <p style="margin-bottom: 1rem; color: #ccc;">Add this app to your home screen:</p>
-                <div style="background: #000; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem;">
-                <p style="color: #ccc; margin-bottom: 0.5rem;">1. Tap the menu icon</p>
-                <div style="text-align: center; margin: 0.5rem 0;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="3" y1="12" x2="21" y2="12"></line>
-                    <line x1="3" y1="6" x2="21" y2="6"></line>
-                    <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </div>
-                <p style="color: #ccc; margin-bottom: 0.5rem; margin-top: 0.5rem;">2. Select "Install app" or "Add to Home screen"</p>
-                </div>
-                <div style="display: flex; justify-content: flex-end;">
-                <button id="dismissInstallBtn" style="background-color: #374151; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; border: none; cursor: pointer;">
-                    Dismiss
-                </button>
-                </div>
-            </div>
-            `;
-        }
-        
-        // Add modal to body after a slight delay to ensure page is loaded
-        setTimeout(() => {
-            document.body.appendChild(modal);
-            
-            // Set up event handlers
-            document.getElementById('closeInstallBtn').addEventListener('click', () => {
-            modal.remove();
-            localStorage.setItem('installPromptDismissed', 'true');
-            });
-            
-            document.getElementById('dismissInstallBtn').addEventListener('click', () => {
-            modal.remove();
-            localStorage.setItem('installPromptDismissed', 'true');
-            });
-            
-            // Close when clicking outside
-            modal.addEventListener('click', (e) => {
-            if (e.target === modal) {
-                modal.remove();
-                localStorage.setItem('installPromptDismissed', 'true');
-            }
-            });
-        }, 1500); // Wait 1.5 seconds after page load
-        })();
     </script>
 </body>
 </html>

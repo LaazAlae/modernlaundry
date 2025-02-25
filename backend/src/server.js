@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const helmet = require('helmet');
-const path = require('path'); // Add path module
+const path = require('path'); 
 const Machine = require('./models/machine');
-const { validateStartMachine, validateSubscribe, validateTestEmail } = require('./middleware/validation');
+const validationMiddleware = require('./middleware/validation');
 const getEmailTemplate = require('./emailTemplates');
 const serverStartTime = Date.now();
 
@@ -36,6 +36,19 @@ const transporter = nodemailer.createTransport({
     },
     debug: true
 });
+
+// Store scheduled notification timers to prevent duplicates
+const notificationTimers = new Map();
+
+// Helper function to clear existing notification timers for a user
+function clearExistingNotificationTimers(machineId, email) {
+    const timerId = `${machineId}-${email}`;
+    if (notificationTimers.has(timerId)) {
+        clearTimeout(notificationTimers.get(timerId));
+        notificationTimers.delete(timerId);
+        console.log(`Cleared existing notification timer for ${email} on machine ${machineId}`);
+    }
+}
 
 // Verify email configuration
 transporter.verify(function(error, success) {
@@ -75,7 +88,7 @@ async function sendEmail(to, subject, type, data) {
 }
 
 // Routes
-app.post('/api/test-email', validateTestEmail, async (req, res) => {
+app.post('/api/test-email', validationMiddleware.validateTestEmail, async (req, res) => {
     const { email } = req.body;
     try {
         await sendEmail(
@@ -133,8 +146,8 @@ app.get('/api/machines', async (req, res) => {
     }
 });
 
-app.post('/api/machines/:id/start', validateStartMachine, async (req, res) => {
-    try {
+app.post('/api/machines/:id/start', validationMiddleware.validateStartMachine, async (req, res) => {
+        try {
         const { id } = req.params;
         const { duration, email } = req.body;
         
@@ -160,35 +173,61 @@ app.post('/api/machines/:id/start', validateStartMachine, async (req, res) => {
 
         // Schedule notification 5 minutes before completion
         if (email && duration > 5) {
-            setTimeout(async () => {
+            // Clear any existing timer for this user and machine
+            clearExistingNotificationTimers(id, email);
+            
+            // Schedule the new notification
+            const notifyTimer = setTimeout(async () => {
                 try {
-                    console.log('Sending 5-minute warning email to:', email);
-                    await sendEmail(
-                        email,
-                        `${machine.name} Almost Done!`,
-                        'almostDone',
-                        {
-                            machineName: machine.name,
-                            completionTime: new Date(endTime).toLocaleTimeString('en-US', {
-                                timeZone: 'America/New_York',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })
-                        }
-                    );
+                    // Remove this timer from the map when it executes
+                    notificationTimers.delete(`${id}-${email}`);
                     
-                    console.log('5-minute warning email sent successfully');
-                    
-                    // Mark user as notified
+                    // Check if user is still subscribed before sending email
                     const updatedMachine = await Machine.findById(id);
                     if (updatedMachine) {
-                        updatedMachine.notifyUsers[0].notified = true;
-                        await updatedMachine.save();
+                        // Find the user in the notifyUsers array
+                        const userRecord = updatedMachine.notifyUsers.find(
+                            user => user.email === email.toLowerCase() && !user.notified
+                        );
+                        
+                        if (userRecord) {
+                            console.log('Sending 5-minute warning email to:', email);
+                            await sendEmail(
+                                email.toLowerCase(),
+                                `${updatedMachine.name} Almost Done!`,
+                                'almostDone',
+                                {
+                                    machineName: updatedMachine.name,
+                                    completionTime: new Date(endTime).toLocaleTimeString('en-US', {
+                                        timeZone: 'America/New_York',
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    })
+                                }
+                            );
+                            
+                            console.log('5-minute warning email sent successfully');
+                            
+                            // Mark user as notified
+                            const userIndex = updatedMachine.notifyUsers.findIndex(
+                                user => user.email === email.toLowerCase()
+                            );
+                            
+                            if (userIndex !== -1) {
+                                updatedMachine.notifyUsers[userIndex].notified = true;
+                                await updatedMachine.save();
+                            }
+                        } else {
+                            console.log(`Not sending email to ${email} - user unsubscribed or already notified`);
+                        }
                     }
                 } catch (error) {
                     console.error('Error sending 5-minute warning:', error);
                 }
             }, (duration - 5) * 60000);
+            
+            // Store the timer reference
+            notificationTimers.set(`${id}-${email}`, notifyTimer);
             
             console.log('Timer set for 5-minute warning in:', (duration - 5), 'minutes');
         }
@@ -200,8 +239,8 @@ app.post('/api/machines/:id/start', validateStartMachine, async (req, res) => {
     }
 });
 
-app.post('/api/machines/:id/subscribe', validateSubscribe, async (req, res) => {
-    try {
+app.post('/api/machines/:id/subscribe', validationMiddleware.validateSubscribe, async (req, res) => {
+        try {
         const { id } = req.params;
         const { email } = req.body;
 
@@ -225,25 +264,62 @@ app.post('/api/machines/:id/subscribe', validateSubscribe, async (req, res) => {
             const notifyTime = new Date(endTime.getTime() - 5 * 60000);
             
             if (notifyTime > now) {
-                setTimeout(async () => {
+                // Clear any existing timer for this user and machine
+                clearExistingNotificationTimers(id, email);
+                
+                // Schedule the new notification
+                const notifyTimer = setTimeout(async () => {
                     try {
-                        await sendEmail(
-                            email,
-                            `${machine.name} Almost Available!`,
-                            'almostAvailable',
-                            {
-                                machineName: machine.name,
-                                completionTime: endTime.toLocaleTimeString('en-US', {
-                                    timeZone: 'America/New_York',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                })
+                        // Remove this timer from the map when it executes
+                        notificationTimers.delete(`${id}-${email}`);
+                        
+                        // Check if user is still subscribed before sending email
+                        const updatedMachine = await Machine.findById(id);
+                        if (updatedMachine) {
+                            // Find the user in the notifyUsers array
+                            const userRecord = updatedMachine.notifyUsers.find(
+                                user => user.email === email.toLowerCase() && !user.notified
+                            );
+                            
+                            if (userRecord) {
+                                await sendEmail(
+                                    email.toLowerCase(),
+                                    `${updatedMachine.name} Almost Available!`,
+                                    'almostAvailable',
+                                    {
+                                        machineName: updatedMachine.name,
+                                        completionTime: endTime.toLocaleTimeString('en-US', {
+                                            timeZone: 'America/New_York',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })
+                                    }
+                                );
+                                
+                                console.log(`Email sent to ${email} for machine ${updatedMachine.name}`);
+                                
+                                // Mark user as notified
+                                const userIndex = updatedMachine.notifyUsers.findIndex(
+                                    user => user.email === email.toLowerCase()
+                                );
+                                
+                                if (userIndex !== -1) {
+                                    updatedMachine.notifyUsers[userIndex].notified = true;
+                                    await updatedMachine.save();
+                                }
+                            } else {
+                                console.log(`Not sending email to ${email} - user unsubscribed or already notified`);
                             }
-                        );
+                        }
                     } catch (error) {
                         console.error('Error sending notification:', error);
                     }
                 }, notifyTime - now);
+                
+                // Store the timer reference
+                notificationTimers.set(`${id}-${email}`, notifyTimer);
+                
+                console.log(`Notification scheduled for ${email} at ${notifyTime.toLocaleString()}`);
             }
         }
 
@@ -254,6 +330,39 @@ app.post('/api/machines/:id/subscribe', validateSubscribe, async (req, res) => {
     }
 });
 
+// Updated with proper validation
+app.post('/api/machines/:id/unsubscribe', validationMiddleware.validateUnsubscribe, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { email } = req.body; // Already standardized to lowercase by validation middleware
+        
+        // Clear any scheduled notification timers
+        clearExistingNotificationTimers(id, email);
+        
+        const machine = await Machine.findById(id);
+        if (!machine) {
+            return res.status(404).json({ error: 'Machine not found' });
+        }
+        
+        // Remove user from notification list if they exist
+        if (machine.notifyUsers && machine.notifyUsers.length > 0) {
+            const initialCount = machine.notifyUsers.length;
+            machine.notifyUsers = machine.notifyUsers.filter(user => user.email !== email);
+            
+            if (initialCount !== machine.notifyUsers.length) {
+                await machine.save();
+                console.log(`User ${email} unsubscribed from notifications for machine ${id}`);
+            } else {
+                console.log(`User ${email} was not subscribed to machine ${id}`);
+            }
+        }
+        
+        res.json({ message: 'Successfully unsubscribed from notifications' });
+    } catch (error) {
+        console.error('Error unsubscribing:', error);
+        res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
 // Catch-all route to return the main index.html
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../../frontend/public/index.html'));
