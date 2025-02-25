@@ -1,19 +1,3 @@
-let lastPingTime = Date.now();
-let pingCount = 0;
-
-setInterval(() => {
-  https.get(APP_URL, (res) => {
-    pingCount++;
-    lastPingTime = Date.now();
-    console.log(`Ping #${pingCount} successful. Status code: ${res.statusCode}. App has been awake for ${Math.floor((Date.now() - serverStartTime) / (60 * 1000))} minutes.`);
-  }).on('error', (err) => {
-    console.error('Ping failed:', err.message);
-  });
-}, PING_INTERVAL);
-
-const serverStartTime = Date.now();
-
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -23,9 +7,9 @@ const path = require('path'); // Add path module
 const Machine = require('./models/machine');
 const { validateStartMachine, validateSubscribe, validateTestEmail } = require('./middleware/validation');
 const getEmailTemplate = require('./emailTemplates');
+const serverStartTime = Date.now();
+
 const app = express();
-
-
 
 // Basic middleware
 app.use(cors({
@@ -322,6 +306,19 @@ setInterval(() => {
   });
 }, PING_INTERVAL);
 
+let lastPingTime = Date.now();
+let pingCount = 0;
+
+setInterval(() => {
+  https.get(APP_URL, (res) => {
+    pingCount++;
+    lastPingTime = Date.now();
+    console.log(`Ping #${pingCount} successful. Status code: ${res.statusCode}. App has been awake for ${Math.floor((Date.now() - serverStartTime) / (60 * 1000))} minutes.`);
+  }).on('error', (err) => {
+    console.error('Ping failed:', err.message);
+  });
+}, PING_INTERVAL);
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
@@ -329,4 +326,3 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
-
