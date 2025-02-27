@@ -161,47 +161,79 @@ function initializePWAInstall() {
 }
 
 // Settings button initialization (formerly Notify button)
-function initializeNotifyButton() {
-    const settingsBtn = document.getElementById('settingsBtn');
-    const emailModal = document.getElementById('emailModal');
-    const emailInput = document.getElementById('emailInput');
-    
-    if (!settingsBtn) {
-        console.error('Settings button not found');
-        return;
-    }
-    
-    const savedEmail = localStorage.getItem('userEmail');
+function initializePWAInstall() {
+    // Check if user has already dismissed or installed
+    const checkPWAStatus = () => {
+        const pwaDismissed = localStorage.getItem('pwa-dismissed');
+        const pwaInstalled = localStorage.getItem('pwa-installed');
+        return !(pwaDismissed || pwaInstalled);
+    };
 
-    // Pre-fill email if exists
-    if (savedEmail && emailInput) {
-        emailInput.value = savedEmail;
-    }
-
-    settingsBtn.addEventListener('click', () => {
-        if (emailModal) {
-            emailModal.style.display = 'flex';
-            if (savedEmail && emailInput) {
-                emailInput.value = savedEmail;
+    // Listen for beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+        // Prevent Chrome 67 and earlier from automatically showing the prompt
+        e.preventDefault();
+        
+        // Stash the event so it can be triggered later
+        deferredPrompt = e;
+        
+        // Only show if user hasn't dismissed or installed
+        if (checkPWAStatus()) {
+            // Show the install prompt UI in a more elegant way than a banner
+            const pwaInstallPrompt = document.getElementById('pwa-install-prompt');
+            if (pwaInstallPrompt) {
+                setTimeout(() => {
+                    pwaInstallPrompt.style.display = 'block';
+                }, 3000);
             }
         }
     });
 
-    const saveEmailButton = document.getElementById('saveEmailButton');
-    if (saveEmailButton) {
-        saveEmailButton.addEventListener('click', () => {
-            if (!emailInput) return;
-            
-            const email = emailInput.value.trim();
-            if (isValidEmail(email)) {
-                localStorage.setItem('userEmail', email);
-                emailModal.style.display = 'none';
-                showToast('Email saved successfully!');
-            } else {
-                showToast('Please enter a valid email address', 'error');
-            }
-        });
-    }
+    // Install button event handlers - add these after DOM is loaded
+    document.addEventListener('DOMContentLoaded', () => {
+        const pwaInstallButton = document.getElementById('pwa-install-button');
+        const pwaDismissButton = document.getElementById('pwa-dismiss-button');
+        
+        if (pwaInstallButton) {
+            pwaInstallButton.addEventListener('click', async () => {
+                const pwaInstallPrompt = document.getElementById('pwa-install-prompt');
+                if (pwaInstallPrompt) {
+                    pwaInstallPrompt.style.display = 'none';
+                }
+                
+                if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    const { outcome } = await deferredPrompt.userChoice;
+                    if (outcome === 'accepted') {
+                        console.log('User accepted the installation');
+                        localStorage.setItem('pwa-installed', 'true');
+                    }
+                    deferredPrompt = null;
+                }
+            });
+        }
+        
+        if (pwaDismissButton) {
+            pwaDismissButton.addEventListener('click', () => {
+                const pwaInstallPrompt = document.getElementById('pwa-install-prompt');
+                if (pwaInstallPrompt) {
+                    pwaInstallPrompt.style.display = 'none';
+                }
+                localStorage.setItem('pwa-dismissed', 'true');
+            });
+        }
+    });
+
+    // Listen for appinstalled event
+    window.addEventListener('appinstalled', (evt) => {
+        console.log('App was installed', evt);
+        localStorage.setItem('pwa-installed', 'true');
+        // Hide the prompt if it's showing
+        const pwaInstallPrompt = document.getElementById('pwa-install-prompt');
+        if (pwaInstallPrompt) {
+            pwaInstallPrompt.style.display = 'none';
+        }
+    });
 }
 
 // Machine timer functions
@@ -638,6 +670,7 @@ function updateLastUpdated() {
 }
 
 // Initialize machines
+// Initialize machines
 async function fetchAndUpdateMachines() {
     try {
         const response = await fetch('/api/machines', {
@@ -652,76 +685,33 @@ async function fetchAndUpdateMachines() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Store the current machine cards' toggle states before updating the DOM
-        const currentMachineStates = {};
-        document.querySelectorAll('.machine-card').forEach(card => {
-            const machineId = card.dataset.machineId;
-            const userUnsubscribed = card.getAttribute('data-user-unsubscribed') === 'true';
-            const bellElement = card.querySelector('.notification-bell');
-            
-            if (machineId) {
-                currentMachineStates[machineId] = {
-                    userUnsubscribed: userUnsubscribed,
-                    wasSubscribed: bellElement && bellElement.classList.contains('subscribed')
-                };
-            }
-        });
-        
         const machines = await response.json();
-        const machinesContainer = document.getElementById('machines');
         
-        if (!machinesContainer) {
-            console.error('Machines container not found');
-            return;
+        // Use the updateMachineDisplay function instead of duplicating code
+        updateMachineDisplay(machines);
+        
+        // Cache the successful response for offline use
+        if ('caches' in window) {
+            caches.open('laundry-app-v3').then(cache => {
+                cache.put('/api/machines', new Response(JSON.stringify(machines)));
+            });
         }
-        
-        machinesContainer.innerHTML = machines.map(machine => createMachineHTML(machine, currentMachineStates[machine._id])).join('');
-        
-        updateLastUpdated();
-        
-        // Add click handlers to machine cards
-        document.querySelectorAll('.machine-card').forEach(card => {
-            // Restore the toggle state from before the update
-            const machineId = card.dataset.machineId;
-            if (machineId && currentMachineStates[machineId]) {
-                if (currentMachineStates[machineId].userUnsubscribed) {
-                    card.setAttribute('data-user-unsubscribed', 'true');
-                    
-                    // Update the bell appearance to match the saved state
-                    const bellElement = card.querySelector('.notification-bell');
-                    if (bellElement && currentMachineStates[machineId].wasSubscribed === false) {
-                        bellElement.classList.remove('subscribed');
-                        bellElement.classList.add('not-subscribed');
-                        bellElement.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                                <line x1="1" y1="1" x2="23" y2="23"></line>
-                            </svg>
-                        `;
-                    }
-                }
-            }
-            
-            card.addEventListener('click', () => {
-                const machineId = card.dataset.machineId;
-                const machine = machines.find(m => m._id === machineId);
-                if (machine) {
-                    handleMachineClick(machine);
-                }
-            });
-        });
-        
-        // Add click handlers to notification bells
-        document.querySelectorAll('.notification-bell').forEach(bell => {
-            bell.addEventListener('click', (e) => {
-                const machineId = bell.dataset.machineId;
-                toggleNotification(e, machineId);
-            });
-        });
     } catch (error) {
         console.error('Error fetching machines:', error);
         showToast('Failed to update machine status', 'error');
+        
+        // Try to load from cache if network request fails
+        if ('caches' in window) {
+            caches.match('/api/machines')
+                .then(response => {
+                    if (response) {
+                        response.json().then(cachedData => {
+                            showToast('Using cached data - you may be offline', 'warning');
+                            updateMachineDisplay(cachedData);
+                        });
+                    }
+                });
+        }
     }
 }
 
@@ -791,6 +781,85 @@ function createMachineHTML(machine) {
             </div>
         </div>
     `;
+}
+
+
+// Helper function to update machine display from cached data
+function updateMachineDisplay(data) {
+    if (!data || !Array.isArray(data)) {
+        console.error('Invalid machine data format');
+        return;
+    }
+    
+    const machinesContainer = document.getElementById('machines');
+    if (!machinesContainer) {
+        console.error('Machines container not found');
+        return;
+    }
+    
+    // Store the current machine cards' toggle states before updating
+    const currentMachineStates = {};
+    document.querySelectorAll('.machine-card').forEach(card => {
+        const machineId = card.dataset.machineId;
+        const userUnsubscribed = card.getAttribute('data-user-unsubscribed') === 'true';
+        const bellElement = card.querySelector('.notification-bell');
+        
+        if (machineId) {
+            currentMachineStates[machineId] = {
+                userUnsubscribed: userUnsubscribed,
+                wasSubscribed: bellElement && bellElement.classList.contains('subscribed')
+            };
+        }
+    });
+    
+    // Update the UI with machine data
+    machinesContainer.innerHTML = data.map(machine => 
+        createMachineHTML(machine, currentMachineStates[machine._id])
+    ).join('');
+    
+    updateLastUpdated();
+    
+    // Add click handlers to machine cards
+    document.querySelectorAll('.machine-card').forEach(card => {
+        // Restore the toggle state from before the update
+        const machineId = card.dataset.machineId;
+        if (machineId && currentMachineStates[machineId]) {
+            if (currentMachineStates[machineId].userUnsubscribed) {
+                card.setAttribute('data-user-unsubscribed', 'true');
+                
+                // Update bell appearance
+                const bellElement = card.querySelector('.notification-bell');
+                if (bellElement && currentMachineStates[machineId].wasSubscribed === false) {
+                    bellElement.classList.remove('subscribed');
+                    bellElement.classList.add('not-subscribed');
+                    bellElement.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            <line x1="1" y1="1" x2="23" y2="23"></line>
+                        </svg>
+                    `;
+                }
+            }
+        }
+        
+        // Add click handler
+        card.addEventListener('click', () => {
+            const machineId = card.dataset.machineId;
+            const machine = data.find(m => m._id === machineId);
+            if (machine) {
+                handleMachineClick(machine);
+            }
+        });
+    });
+    
+    // Add click handlers to notification bells
+    document.querySelectorAll('.notification-bell').forEach(bell => {
+        bell.addEventListener('click', (e) => {
+            const machineId = bell.dataset.machineId;
+            toggleNotification(e, machineId);
+        });
+    });
 }
 
 // Event Listener Setup
@@ -971,3 +1040,40 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 });
+
+
+// Performance optimizations
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize app as soon as DOM is ready
+    initializeApp();
+});
+
+// Function to initialize the app quickly
+function initializeApp() {
+    // Preload machine data if available in cache before making network request
+    if ('caches' in window) {
+        caches.match('/api/machines')
+            .then(response => {
+                if (response) {
+                    response.json().then(data => {
+                        // Display cached data first while waiting for fresh data
+                        updateMachineDisplay(data);
+                    });
+                }
+            });
+    }
+    
+    // Set up background sync if browser supports it
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+        navigator.serviceWorker.ready.then(registration => {
+            // Register for background sync
+            try {
+                registration.periodicSync.register('update-laundry-status', {
+                    minInterval: 15 * 60 * 1000, // 15 minutes
+                });
+            } catch (error) {
+                console.log('Periodic Sync could not be registered: ', error);
+            }
+        });
+    }
+}
