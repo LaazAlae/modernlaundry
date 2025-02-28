@@ -365,13 +365,13 @@ app.post('/api/machines/:id/unsubscribe', validationMiddleware.validateUnsubscri
 });
 // Catch-all route to return the main index.html
 app.get('*', (req, res) => {
-    // For non-API routes that somehow reach the backend, return an API error
-    if (!req.path.startsWith('/api/')) {
-        return res.status(404).json({ 
-            error: 'Route not found', 
-            message: 'This backend server only handles API routes. Frontend routes should be handled by NGINX.' 
-        });
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+        return res.status(404).json({ error: 'API route not found' });
     }
+    
+    // Serve index.html for all other routes
+    res.sendFile('/frontend/public/index.html');
 });
 
 // MongoDB connection - Use environment variable or fallback
