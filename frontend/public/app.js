@@ -1,102 +1,43 @@
-function createMachineHTML(machine, savedState) {
-    const now = new Date();
-    const endTime = machine.endTime ? new Date(machine.endTime) : null;
-    const isActive = machine.inUse && endTime && endTime > now;
-    const status = isActive ? 'in-use' : 'available';
-    const statusText = isActive ? 'In Use' : 'Available';
-
-    // Check if current user is subscribed for notifications
-    const savedEmail = localStorage.getItem('userEmail');
-    
-    // Check if user started this machine (is the current user)
-    const isCurrentUser = savedEmail && 
-                         machine.currentUserEmail === savedEmail;
-    
-    // Check if user is subscribed for notifications
-    let isSubscribed = savedEmail && 
-                      machine.notifyUsers && 
-                      machine.notifyUsers.some(user => user.email === savedEmail);
-    
-    // If we have saved state from a user toggle, respect that instead of the server state
-    if (savedState && savedState.userUnsubscribed) {
-        isSubscribed = !savedState.userUnsubscribed;
-    }
-    
-    // Bell icon classes - green if subscribed, gray with cross if not
-    const bellClass = isSubscribed ? 'subscribed' : 'not-subscribed';
-    
-    // Bell icon SVG (will be green if subscribed, gray with cross if not)
-    const bellIcon = `
-        <div class="notification-bell ${bellClass}" data-machine-id="${machine._id}">
-            ${isSubscribed ? 
-            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>` : 
-            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>`}
-        </div>
-    `;
-
-    let timeDisplay = '';
-    if (isActive) {
-        const timeLeft = getTimeLeft(machine.endTime);
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = Math.floor(timeLeft % 60);
-        timeDisplay = `<div class="text-3xl font-bold">${minutes}m <span class="text-xl text-gray-400">${seconds}s</span></div>`;
-    }
-
-    // Format the last used time
-    const lastUsedTime = machine.lastEndTime ? formatTimeSince(machine.lastEndTime) : 'never';
-
-    return `
-        <div class="machine-card ${status}" data-machine-id="${machine._id}" ${isSubscribed ? 'data-user-unsubscribed="false"' : 'data-user-unsubscribed="true"'}>
-            <div class="flex justify-between items-start w-full">
-                <div>
-                    <span class="status-badge ${status} mb-3">${statusText}</span>
-                    <h2 class="text-2xl font-bold mb-4">${machine.name}</h2>
-                    ${isActive ? `
-                        <div class="text-gray-400 mb-4">${timeDisplay}</div>
-                    ` : `
-                        <div class="text-gray-400">Ready to use</div>
-                        <div class="text-sm text-gray-500 mt-2">Last timer ended: ${lastUsedTime}</div>
-                    `}
-                </div>
-                ${bellIcon}
-            </div>
-        </div>
-    `;
-}const API_URL = '/api';
+// Initialize core functionality and critical variables immediately
+const API_URL = '/api';
 let deferredPrompt;
-
-const MACHINES = {
-    'washer1': { name: 'Washer 1', defaultTime: 30 },
-    'washer2': { name: 'Washer 2', defaultTime: 30 },
-    'dryer1': { name: 'Dryer 1', defaultTime: 60 },
-    'dryer2': { name: 'Dryer 2', defaultTime: 60 }
-};
-
 let selectedMachineId = null;
+let machineData = []; // Cache for machine data
+let lastFetchTime = 0;
+const FETCH_THROTTLE_MS = 1000; // Minimum time between API calls
 
-// Initialize the app
-document.addEventListener('DOMContentLoaded', () => {
-    initializeNotifyButton();
-    initializePWAInstall();
-    fetchAndUpdateMachines();
-    setInterval(fetchAndUpdateMachines, 1000);
+// Utility functions (moved to top for hoisting benefits)
+function getTimeLeft(endTime) {
+    if (!endTime) return 0;
+    const end = new Date(endTime);
+    const now = new Date();
+    const diff = end - now;
+    return Math.max(0, diff / 1000);
+}
 
-    // Add event listeners for the modal close buttons
-    document.querySelectorAll('.modal-close').forEach(button => {
-        button.addEventListener('click', function() {
-            this.closest('.modal').style.display = 'none';
-        });
-    });
-});
+function formatTimeSince(dateString) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - date) / 1000);
 
-// Toast notification function (was missing)
+    if (diffInSeconds < 60) {
+        return 'just now';
+    } else if (diffInSeconds < 3600) {
+        const minutes = Math.floor(diffInSeconds / 60);
+        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+        const hours = Math.floor(diffInSeconds / 3600);
+        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+        const days = Math.floor(diffInSeconds / 86400);
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+}
+
+function isValidEmail(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function showToast(message, type = 'info') {
     // Create toast container if it doesn't exist
     let toastContainer = document.getElementById('toastContainer');
@@ -126,41 +67,153 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// PWA Installation
-function initializePWAInstall() {
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        // Create and show the install banner
-        const installBanner = document.createElement('div');
-        installBanner.className = 'install-banner';
-        installBanner.innerHTML = `
-            <p>Install Flint Laundry for easy access!</p>
-            <button id="installButton" class="install-button">Install</button>
-        `;
-        
-        document.body.appendChild(installBanner);
-        
-        document.getElementById('installButton').addEventListener('click', async () => {
-            if (deferredPrompt) {
-                deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
-                if (outcome === 'accepted') {
-                    console.log('User accepted the installation');
-                }
-                deferredPrompt = null;
-                installBanner.remove();
-            }
+function updateLastUpdated() {
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const footerText = document.getElementById('footerText');
+    if (footerText) {
+        footerText.textContent = `updated: ${time}`;
+    }
+}
+
+// HTML generator functions
+function createMachineHTML(machine, savedState) {
+    const now = new Date();
+    const endTime = machine.endTime ? new Date(machine.endTime) : null;
+    const isActive = machine.inUse && endTime && endTime > now;
+    const status = isActive ? 'in-use' : 'available';
+    const statusText = isActive ? 'In Use' : 'Available';
+
+    // Check saved email and subscription status
+    const savedEmail = localStorage.getItem('userEmail');
+    const isCurrentUser = savedEmail && machine.currentUserEmail === savedEmail;
+    
+    // Check if user is subscribed for notifications
+    let isSubscribed = savedEmail && 
+                      machine.notifyUsers && 
+                      machine.notifyUsers.some(user => user.email === savedEmail);
+    
+    // If we have saved state from a user toggle, respect that instead of the server state
+    if (savedState && savedState.userUnsubscribed !== undefined) {
+        isSubscribed = !savedState.userUnsubscribed;
+    }
+    
+    // Bell icon classes and SVG
+    const bellClass = isSubscribed ? 'subscribed' : 'not-subscribed';
+    const bellIcon = `
+        <div class="notification-bell ${bellClass}" data-machine-id="${machine._id}">
+            ${isSubscribed ? 
+            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>` : 
+            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+            </svg>`}
+        </div>
+    `;
+
+    // Time display for active machines
+    let timeDisplay = '';
+    if (isActive) {
+        const timeLeft = getTimeLeft(machine.endTime);
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = Math.floor(timeLeft % 60);
+        timeDisplay = `<div class="text-3xl font-bold">${minutes}m <span class="text-xl text-gray-400">${seconds}s</span></div>`;
+    }
+
+    // Format the last used time
+    const lastUsedTime = machine.lastEndTime ? formatTimeSince(machine.lastEndTime) : 'never';
+
+    return `
+        <div class="machine-card ${status}" data-machine-id="${machine._id}" ${isSubscribed ? 'data-user-unsubscribed="false"' : 'data-user-unsubscribed="true"'}>
+            <div class="flex justify-between items-start w-full">
+                <div>
+                    <span class="status-badge ${status} mb-3">${statusText}</span>
+                    <h2 class="text-2xl font-bold mb-4">${machine.name}</h2>
+                    ${isActive ? `
+                        <div class="text-gray-400 mb-4">${timeDisplay}</div>
+                    ` : `
+                        <div class="text-gray-400">Ready to use</div>
+                        <div class="text-sm text-gray-500 mt-2">Last timer ended: ${lastUsedTime}</div>
+                    `}
+                </div>
+                ${bellIcon}
+            </div>
+        </div>
+    `;
+}
+
+// Main initialization function
+function initializeApp() {
+    // Set up event listeners
+    initializeNotifyButton();
+    initializePWAInstall();
+    
+    // Start fetching data immediately
+    fetchAndUpdateMachines();
+    
+    // Set up regular updates - use requestAnimationFrame for better performance
+    let lastTime = 0;
+    function updateLoop(timestamp) {
+        if (!lastTime || timestamp - lastTime >= FETCH_THROTTLE_MS) {
+            lastTime = timestamp;
+            fetchAndUpdateMachines(false); // false = non-forced update
+        }
+        window.requestAnimationFrame(updateLoop);
+    }
+    window.requestAnimationFrame(updateLoop);
+    
+    // Add event listeners for modals
+    document.querySelectorAll('.modal-close').forEach(button => {
+        button.addEventListener('click', function() {
+            this.closest('.modal').style.display = 'none';
         });
     });
-
-    window.addEventListener('appinstalled', () => {
-        console.log('PWA was installed');
+    
+    // Add event listeners for timer modal
+    const timeInput = document.getElementById('timeInput');
+    if (timeInput) {
+        timeInput.addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const errorMessage = document.getElementById('errorMessage');
+            const startButton = document.getElementById('startButton');
+            
+            if (errorMessage && startButton) {
+                if (value < 5 || value > 90) {
+                    errorMessage.style.display = 'block';
+                    startButton.disabled = true;
+                } else {
+                    errorMessage.style.display = 'none';
+                    startButton.disabled = false;
+                }
+            }
+        });
+    }
+    
+    // Start button in timer modal
+    const startButton = document.getElementById('startButton');
+    if (startButton) {
+        startButton.addEventListener('click', startMachine);
+    }
+    
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+        const timerModal = document.getElementById('timerModal');
+        const emailModal = document.getElementById('emailModal');
+        
+        if (e.target === timerModal) {
+            timerModal.style.display = 'none';
+        }
+        if (e.target === emailModal) {
+            emailModal.style.display = 'none';
+        }
     });
 }
 
-// Settings button initialization (formerly Notify button)
+// Settings button functionality
 function initializeNotifyButton() {
     const settingsBtn = document.getElementById('settingsBtn');
     const emailModal = document.getElementById('emailModal');
@@ -204,106 +257,156 @@ function initializeNotifyButton() {
     }
 }
 
-// Machine timer functions
-function openTimerModal(machineId) {
-    const response = fetch(`${API_URL}/machines/${machineId}`)
-        .then(response => response.json())
-        .then(machine => {
-            if (!machine) {
-                console.error('Machine not found');
-                return;
+// PWA installation
+function initializePWAInstall() {
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        
+        // Check if we're already in standalone mode or if the prompt was dismissed before
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            localStorage.getItem('installPromptDismissed')) {
+            return;
+        }
+        
+        // Create and show the install banner
+        const installBanner = document.createElement('div');
+        installBanner.className = 'install-banner';
+        installBanner.innerHTML = `
+            <p>Install Flint Laundry for easier access!</p>
+            <button id="installButton" class="install-button">Install</button>
+        `;
+        
+        document.body.appendChild(installBanner);
+        
+        document.getElementById('installButton').addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User ${outcome === 'accepted' ? 'accepted' : 'dismissed'} the installation`);
+                deferredPrompt = null;
+                installBanner.remove();
             }
-
-            selectedMachineId = machineId;
-            const modal = document.getElementById('timerModal');
-            const modalTitle = document.getElementById('modalTitle');
-            const timeInput = document.getElementById('timeInput');
-
-            if (!modal || !modalTitle || !timeInput) {
-                console.error('Modal elements not found');
-                return;
-            }
-
-            modalTitle.textContent = machine.name;
-            timeInput.value = machine.defaultTime || 30;
-            
-            // Check if user has email set
-            const savedEmail = localStorage.getItem('userEmail');
-            
-            // Show email request if no email saved
-            if (!savedEmail) {
-                const emailRequestDiv = document.getElementById('emailRequestSection');
-                if (emailRequestDiv) {
-                    emailRequestDiv.style.display = 'block';
-                }
-            } else {
-                const emailRequestDiv = document.getElementById('emailRequestSection');
-                if (emailRequestDiv) {
-                    emailRequestDiv.style.display = 'none';
-                }
-            }
-            
-            modal.style.display = 'flex';
-            timeInput.focus();
-
-            const errorMessage = document.getElementById('errorMessage');
-            const startButton = document.getElementById('startButton');
-            
-            if (errorMessage) {
-                errorMessage.style.display = 'none';
-            }
-            
-            if (startButton) {
-                startButton.disabled = false;
-            }
-        })
-        .catch(error => {
-            console.error('Error opening timer modal:', error);
-            showToast('Error opening timer modal', 'error');
         });
+    });
+
+    window.addEventListener('appinstalled', () => {
+        console.log('PWA was installed');
+    });
+}
+
+// Machine timer functions
+async function openTimerModal(machineId) {
+    try {
+        // First check if we have this machine in cached data
+        let machine = machineData.find(m => m._id === machineId);
+        
+        // If not cached or data is stale, fetch from API
+        if (!machine || Date.now() - lastFetchTime > 5000) {
+            const response = await fetch(`${API_URL}/machines/${machineId}`);
+            if (!response.ok) throw new Error('Failed to fetch machine data');
+            machine = await response.json();
+        }
+        
+        if (!machine) {
+            console.error('Machine not found');
+            return;
+        }
+
+        selectedMachineId = machineId;
+        const modal = document.getElementById('timerModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const timeInput = document.getElementById('timeInput');
+
+        if (!modal || !modalTitle || !timeInput) {
+            console.error('Modal elements not found');
+            return;
+        }
+
+        modalTitle.textContent = machine.name;
+        timeInput.value = machine.defaultTime || 30;
+        
+        // Check if user has email set
+        const savedEmail = localStorage.getItem('userEmail');
+        
+        // Show email request if no email saved
+        const emailRequestDiv = document.getElementById('emailRequestSection');
+        if (emailRequestDiv) {
+            emailRequestDiv.style.display = savedEmail ? 'none' : 'block';
+        }
+        
+        // Reset error states
+        const errorMessage = document.getElementById('errorMessage');
+        const startButton = document.getElementById('startButton');
+        
+        if (errorMessage) {
+            errorMessage.style.display = 'none';
+        }
+        
+        if (startButton) {
+            startButton.disabled = false;
+        }
+        
+        // Show modal
+        modal.style.display = 'flex';
+        timeInput.focus();
+    } catch (error) {
+        console.error('Error opening timer modal:', error);
+        showToast('Error opening timer modal', 'error');
+    }
 }
 
 // Start machine function
 async function startMachine() {
-    const timeInput = document.getElementById('timeInput');
-    const timerEmailInput = document.getElementById('timerEmailInput');
-    
-    if (!timeInput) {
-        showToast('Error: Time input not found', 'error');
-        return;
-    }
-    
-    const duration = parseInt(timeInput.value);
-    
-    // Get email - either from localStorage or from the timer modal input
-    let email = localStorage.getItem('userEmail');
-    let newEmailSubmitted = false;
-    
-    // If user just entered email in the timer modal
-    if (timerEmailInput && timerEmailInput.value.trim() !== '' && isValidEmail(timerEmailInput.value.trim())) {
-        email = timerEmailInput.value.trim();
-        localStorage.setItem('userEmail', email);
-        newEmailSubmitted = true;
-    }
-
-    if (duration < 5 || duration > 90) {
-        showToast('Please enter a time between 5 and 90 minutes', 'warning');
-        return;
-    }
-
     try {
+        const timeInput = document.getElementById('timeInput');
+        const timerEmailInput = document.getElementById('timerEmailInput');
+        
+        if (!timeInput) {
+            showToast('Error: Time input not found', 'error');
+            return;
+        }
+        
+        const duration = parseInt(timeInput.value);
+        
+        // Get email - either from localStorage or from the timer modal input
+        let email = localStorage.getItem('userEmail');
+        let newEmailSubmitted = false;
+        
+        // If user just entered email in the timer modal
+        if (timerEmailInput && timerEmailInput.value.trim() !== '' && 
+            isValidEmail(timerEmailInput.value.trim())) {
+            email = timerEmailInput.value.trim();
+            localStorage.setItem('userEmail', email);
+            newEmailSubmitted = true;
+        }
+
+        if (duration < 5 || duration > 90) {
+            showToast('Please enter a time between 5 and 90 minutes', 'warning');
+            return;
+        }
+
+        // Show loading indicator in the button
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Starting...
+            `;
+            startButton.disabled = true;
+        }
+
         // Start the machine
         const response = await fetch(`/api/machines/${selectedMachineId}/start`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ 
-                duration,
-                email 
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ duration, email })
         });
 
+        // Close modal
         const timerModal = document.getElementById('timerModal');
         if (timerModal) {
             timerModal.style.display = 'none';
@@ -312,15 +415,13 @@ async function startMachine() {
         if (response.ok) {
             // Successfully started the machine
             if (email) {
-                // The backend already subscribes the starter by default
-                // But we could add an explicit subscription call here if needed
                 showToast('Started! You\'ll be notified 5 minutes before completion', 'success');
             } else {
                 showToast('Machine started successfully', 'success');
             }
             
-            // Update UI to show latest machine states including bell icons
-            fetchAndUpdateMachines();
+            // Force immediate update
+            fetchAndUpdateMachines(true);
         } else {
             const error = await response.json();
             showToast(error.message || 'Failed to start machine', 'error');
@@ -328,6 +429,13 @@ async function startMachine() {
     } catch (error) {
         console.error('Error starting machine:', error);
         showToast('Failed to start machine. Please try again.', 'error');
+    } finally {
+        // Reset button state
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.innerHTML = 'Start';
+            startButton.disabled = false;
+        }
     }
 }
 
@@ -338,7 +446,7 @@ function handleMachineClick(machine) {
     const isActive = machine.inUse && endTime && endTime > now;
 
     if (isActive) {
-        // When clicking on an active machine, we show details or simply provide info
+        // When clicking on an active machine, show details or info
         const savedEmail = localStorage.getItem('userEmail');
         const isSubscribed = savedEmail && 
                             machine.notifyUsers && 
@@ -347,7 +455,6 @@ function handleMachineClick(machine) {
         if (isSubscribed) {
             showToast(`${machine.name} will be available in approximately ${Math.floor(getTimeLeft(machine.endTime) / 60)} minutes`, 'info');
         } else {
-            // If not subscribed, prompt them to click the bell if they want notifications
             showToast(`Click the bell icon if you want to be notified when ${machine.name} is ready`, 'info');
         }
     } else {
@@ -359,9 +466,7 @@ function handleMachineClick(machine) {
 // Subscribe to machine notifications
 async function subscribeToMachine(machineId, email) {
     try {
-        showToast(`You'll be notified when this machine is almost ready`, 'success');
-        
-        // Find the bell element and update it visually immediately for better UX
+        // Update UI first for better responsiveness
         const bell = document.querySelector(`.notification-bell[data-machine-id="${machineId}"]`);
         if (bell) {
             bell.classList.remove('not-subscribed');
@@ -374,40 +479,48 @@ async function subscribeToMachine(machineId, email) {
             `;
         }
         
-        // Update machine data in memory to track subscription without API call
-        // Find the machine in the most recent fetch
+        // Update machine data in DOM too
         const machineElement = document.querySelector(`.machine-card[data-machine-id="${machineId}"]`);
         if (machineElement) {
-            // Mark as subscribed in the DOM directly
-            machineElement.setAttribute('data-subscribed', 'true');
+            machineElement.setAttribute('data-user-unsubscribed', 'false');
         }
+        
+        // Update our cached data (optimistic update)
+        const machineIndex = machineData.findIndex(m => m._id === machineId);
+        if (machineIndex !== -1) {
+            if (!machineData[machineIndex].notifyUsers) {
+                machineData[machineIndex].notifyUsers = [];
+            }
+            
+            // Add user if not already subscribed
+            if (!machineData[machineIndex].notifyUsers.some(u => u.email === email)) {
+                machineData[machineIndex].notifyUsers.push({ email, notified: false });
+            }
+        }
+        
+        showToast(`You'll be notified when this machine is almost ready`, 'success');
         
         // Call the backend to save the subscription
-        try {
-            const response = await fetch(`/api/machines/${machineId}/subscribe`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email })
-            });
-        } catch (apiError) {
-            console.error('API error during subscribe:', apiError);
-            // We won't revert the UI even if API fails to maintain user's intended action
-        }
+        const response = await fetch(`/api/machines/${machineId}/subscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
         
+        if (!response.ok) {
+            throw new Error('Failed to subscribe');
+        }
     } catch (error) {
-        console.error('Error:', error);
-        showToast('Failed to subscribe to notifications', 'error');
+        console.error('Subscription error:', error);
+        // Don't revert UI to avoid confusing the user
+        showToast('Error saving subscription, but we\'ll try to notify you', 'warning');
     }
 }
 
-// Unsubscribe from machine notifications (turn bell off)
+// Unsubscribe from machine notifications
 async function unsubscribeFromMachine(machineId, email) {
     try {
-        showToast(`Notifications turned off for this machine`, 'info');
-        
-        // Find the bell element and update it visually immediately for better UX
+        // Update UI first for better responsiveness
         const bell = document.querySelector(`.notification-bell[data-machine-id="${machineId}"]`);
         if (bell) {
             bell.classList.remove('subscribed');
@@ -421,30 +534,34 @@ async function unsubscribeFromMachine(machineId, email) {
             `;
         }
         
-        // Update machine data in memory to track unsubscription without API call
-        // Find the machine in the most recent fetch
+        // Update machine data in DOM too
         const machineElement = document.querySelector(`.machine-card[data-machine-id="${machineId}"]`);
         if (machineElement) {
-            // Mark as unsubscribed in the DOM directly
-            machineElement.setAttribute('data-subscribed', 'false');
+            machineElement.setAttribute('data-user-unsubscribed', 'true');
         }
         
-        // In a real implementation, you would call an API endpoint
-        try {
-            const response = await fetch(`/api/machines/${machineId}/unsubscribe`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ email })
-            });
-        } catch (apiError) {
-            console.error('API error during unsubscribe:', apiError);
-            // We won't revert the UI even if API fails to maintain user's intended action
+        // Update our cached data (optimistic update)
+        const machineIndex = machineData.findIndex(m => m._id === machineId);
+        if (machineIndex !== -1 && machineData[machineIndex].notifyUsers) {
+            machineData[machineIndex].notifyUsers = machineData[machineIndex].notifyUsers
+                .filter(u => u.email !== email);
         }
         
+        showToast(`Notifications turned off for this machine`, 'info');
+        
+        // Call the backend to save the unsubscription
+        const response = await fetch(`/api/machines/${machineId}/unsubscribe`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to unsubscribe');
+        }
     } catch (error) {
-        console.error('Error unsubscribing:', error);
+        console.error('Unsubscription error:', error);
+        // Don't revert UI to avoid confusing the user
     }
 }
 
@@ -452,7 +569,6 @@ async function unsubscribeFromMachine(machineId, email) {
 function toggleNotification(e, machineId) {
     e.stopPropagation(); // Prevent triggering the machine card click
     
-    // Get the bell element
     const bell = e.currentTarget;
     const isCurrentlySubscribed = bell.classList.contains('subscribed');
     const savedEmail = localStorage.getItem('userEmail');
@@ -460,74 +576,66 @@ function toggleNotification(e, machineId) {
     // Store the current toggle state in a data attribute to prevent auto-refresh from resetting it
     const machineCard = bell.closest('.machine-card');
     if (machineCard) {
-        if (isCurrentlySubscribed) {
-            machineCard.setAttribute('data-user-unsubscribed', 'true');
-        } else {
-            machineCard.setAttribute('data-user-unsubscribed', 'false');
-        }
+        machineCard.setAttribute('data-user-unsubscribed', isCurrentlySubscribed ? 'true' : 'false');
     }
     
-    // If already subscribed, unsubscribe immediately for responsive UI
+    // If already subscribed, unsubscribe immediately
     if (isCurrentlySubscribed && savedEmail) {
-        // Immediate visual feedback - change the bell
-        bell.classList.remove('subscribed');
-        bell.classList.add('not-subscribed');
-        bell.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>
-        `;
-        
-        // Then call the backend
         unsubscribeFromMachine(machineId, savedEmail);
         return;
     }
     
-    // If not subscribed and has email, subscribe immediately for responsive UI
+    // If not subscribed and has email, subscribe
     if (!isCurrentlySubscribed && savedEmail) {
         // Get the machine to check if it's active
-        fetch(`/api/machines/${machineId}`)
-            .then(response => response.json())
-            .then(machine => {
-                const isActive = machine.inUse && 
-                               machine.endTime && 
-                               new Date(machine.endTime) > new Date();
-                
-                if (isActive) {
-                    // Check if machine has more than 5 minutes left
-                    const timeLeft = getTimeLeft(machine.endTime);
-                    if (timeLeft > 300) { // 300 seconds = 5 minutes
-                        // Immediate visual feedback - change the bell
-                        bell.classList.remove('not-subscribed');
-                        bell.classList.add('subscribed');
-                        bell.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                            </svg>
-                        `;
-                        
-                        // Then call the backend
-                        subscribeToMachine(machineId, savedEmail);
-                    } else {
-                        showToast('Machine has less than 5 minutes remaining', 'warning');
-                    }
+        const machine = machineData.find(m => m._id === machineId);
+        
+        if (machine) {
+            const isActive = machine.inUse && 
+                           machine.endTime && 
+                           new Date(machine.endTime) > new Date();
+            
+            if (isActive) {
+                // Check if machine has more than 5 minutes left
+                const timeLeft = getTimeLeft(machine.endTime);
+                if (timeLeft > 300) { // 300 seconds = 5 minutes
+                    subscribeToMachine(machineId, savedEmail);
                 } else {
-                    showToast('This machine is not currently in use', 'info');
+                    showToast('Machine has less than 5 minutes remaining', 'warning');
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching machine:', error);
-                showToast('Error checking machine status', 'error');
-            });
+            } else {
+                showToast('This machine is not currently in use', 'info');
+            }
+        } else {
+            // If machine data isn't cached, fetch it
+            fetch(`/api/machines/${machineId}`)
+                .then(response => response.json())
+                .then(machine => {
+                    const isActive = machine.inUse && 
+                                   machine.endTime && 
+                                   new Date(machine.endTime) > new Date();
+                    
+                    if (isActive) {
+                        const timeLeft = getTimeLeft(machine.endTime);
+                        if (timeLeft > 300) {
+                            subscribeToMachine(machineId, savedEmail);
+                        } else {
+                            showToast('Machine has less than 5 minutes remaining', 'warning');
+                        }
+                    } else {
+                        showToast('This machine is not currently in use', 'info');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching machine:', error);
+                    showToast('Error checking machine status', 'error');
+                });
+        }
         return;
     }
     
-    // User has no email saved
+    // User has no email saved - show email modal
     if (!savedEmail) {
-        // Show email modal to get their email first
         const emailModal = document.getElementById('emailModal');
         selectedMachineId = machineId;
         
@@ -562,31 +670,49 @@ function toggleNotification(e, machineId) {
                         localStorage.setItem('userEmail', email);
                         emailModal.style.display = 'none';
                         
-                        // Check if machine is active before subscribing
-                        fetch(`/api/machines/${machineId}`)
-                            .then(response => response.json())
-                            .then(machine => {
-                                const isActive = machine.inUse && 
-                                               machine.endTime && 
-                                               new Date(machine.endTime) > new Date();
-                                
-                                if (isActive) {
-                                    // Check if machine has more than 5 minutes left
-                                    const timeLeft = getTimeLeft(machine.endTime);
-                                    if (timeLeft > 300) { // 300 seconds = 5 minutes
-                                        // Subscribe and update UI
-                                        subscribeToMachine(machineId, email);
-                                    } else {
-                                        showToast('Machine has less than 5 minutes remaining', 'warning');
-                                    }
+                        // Now try to subscribe with the new email
+                        const machine = machineData.find(m => m._id === machineId);
+                        
+                        if (machine) {
+                            const isActive = machine.inUse && 
+                                           machine.endTime && 
+                                           new Date(machine.endTime) > new Date();
+                            
+                            if (isActive) {
+                                const timeLeft = getTimeLeft(machine.endTime);
+                                if (timeLeft > 300) {
+                                    subscribeToMachine(machineId, email);
                                 } else {
-                                    showToast('This machine is not currently in use', 'info');
+                                    showToast('Machine has less than 5 minutes remaining', 'warning');
                                 }
-                            })
-                            .catch(error => {
-                                console.error('Error fetching machine:', error);
-                                showToast('Error checking machine status', 'error');
-                            });
+                            } else {
+                                showToast('This machine is not currently in use', 'info');
+                            }
+                        } else {
+                            // Fetch if not in cache
+                            fetch(`/api/machines/${machineId}`)
+                                .then(response => response.json())
+                                .then(machine => {
+                                    const isActive = machine.inUse && 
+                                                   machine.endTime && 
+                                                   new Date(machine.endTime) > new Date();
+                                    
+                                    if (isActive) {
+                                        const timeLeft = getTimeLeft(machine.endTime);
+                                        if (timeLeft > 300) {
+                                            subscribeToMachine(machineId, email);
+                                        } else {
+                                            showToast('Machine has less than 5 minutes remaining', 'warning');
+                                        }
+                                    } else {
+                                        showToast('This machine is not currently in use', 'info');
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error('Error fetching machine:', error);
+                                    showToast('Error checking machine status', 'error');
+                                });
+                        }
                     } else {
                         showToast('Please enter a valid email address', 'error');
                     }
@@ -596,378 +722,97 @@ function toggleNotification(e, machineId) {
     }
 }
 
-// Utility functions
-function getTimeLeft(endTime) {
-    if (!endTime) return 0;
-    const end = new Date(endTime);
-    const now = new Date();
-    const diff = end - now;
-    return Math.max(0, diff / 1000);
-}
-
-function formatTimeSince(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInSeconds = Math.floor((now - date) / 1000);
-
-    if (diffInSeconds < 60) {
-        return 'just now';
-    } else if (diffInSeconds < 3600) {
-        const minutes = Math.floor(diffInSeconds / 60);
-        return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-    } else if (diffInSeconds < 86400) {
-        const hours = Math.floor(diffInSeconds / 3600);
-        return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    } else {
-        const days = Math.floor(diffInSeconds / 86400);
-        return `${days} day${days > 1 ? 's' : ''} ago`;
+// Fetch and update machines
+async function fetchAndUpdateMachines(forceUpdate = false) {
+    // Throttle API calls to prevent excessive requests
+    const now = Date.now();
+    if (!forceUpdate && now - lastFetchTime < FETCH_THROTTLE_MS) {
+        // Instead of making a new request, just update the UI with existing data
+        updateMachinesUI(machineData);
+        return;
     }
-}
-
-function isValidEmail(email) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function updateLastUpdated() {
-    const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const footerText = document.getElementById('footerText');
-    if (footerText) {
-        footerText.textContent = `updated: ${time}`;
-    }
-}
-
-// Initialize machines
-async function fetchAndUpdateMachines() {
+    
     try {
         const response = await fetch('/api/machines', {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
-            }
+            },
+            // Use cache for better performance on frequent updates
+            cache: forceUpdate ? 'reload' : 'default'
         });
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        // Store the current machine cards' toggle states before updating the DOM
-        const currentMachineStates = {};
-        document.querySelectorAll('.machine-card').forEach(card => {
-            const machineId = card.dataset.machineId;
-            const userUnsubscribed = card.getAttribute('data-user-unsubscribed') === 'true';
-            const bellElement = card.querySelector('.notification-bell');
-            
-            if (machineId) {
-                currentMachineStates[machineId] = {
-                    userUnsubscribed: userUnsubscribed,
-                    wasSubscribed: bellElement && bellElement.classList.contains('subscribed')
-                };
-            }
-        });
+        // Update our cache and last fetch time
+        machineData = await response.json();
+        lastFetchTime = now;
         
-        const machines = await response.json();
-        const machinesContainer = document.getElementById('machines');
-        
-        if (!machinesContainer) {
-            console.error('Machines container not found');
-            return;
-        }
-        
-        machinesContainer.innerHTML = machines.map(machine => createMachineHTML(machine, currentMachineStates[machine._id])).join('');
-        
-        updateLastUpdated();
-        
-        // Add click handlers to machine cards
-        document.querySelectorAll('.machine-card').forEach(card => {
-            // Restore the toggle state from before the update
-            const machineId = card.dataset.machineId;
-            if (machineId && currentMachineStates[machineId]) {
-                if (currentMachineStates[machineId].userUnsubscribed) {
-                    card.setAttribute('data-user-unsubscribed', 'true');
-                    
-                    // Update the bell appearance to match the saved state
-                    const bellElement = card.querySelector('.notification-bell');
-                    if (bellElement && currentMachineStates[machineId].wasSubscribed === false) {
-                        bellElement.classList.remove('subscribed');
-                        bellElement.classList.add('not-subscribed');
-                        bellElement.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                                <line x1="1" y1="1" x2="23" y2="23"></line>
-                            </svg>
-                        `;
-                    }
-                }
-            }
-            
-            card.addEventListener('click', () => {
-                const machineId = card.dataset.machineId;
-                const machine = machines.find(m => m._id === machineId);
-                if (machine) {
-                    handleMachineClick(machine);
-                }
-            });
-        });
-        
-        // Add click handlers to notification bells
-        document.querySelectorAll('.notification-bell').forEach(bell => {
-            bell.addEventListener('click', (e) => {
-                const machineId = bell.dataset.machineId;
-                toggleNotification(e, machineId);
-            });
-        });
+        // Update the UI with the new data
+        updateMachinesUI(machineData);
     } catch (error) {
         console.error('Error fetching machines:', error);
-        showToast('Failed to update machine status', 'error');
-    }
-}
-
-function createMachineHTML(machine) {
-    const now = new Date();
-    const endTime = machine.endTime ? new Date(machine.endTime) : null;
-    const isActive = machine.inUse && endTime && endTime > now;
-    const status = isActive ? 'in-use' : 'available';
-    const statusText = isActive ? 'In Use' : 'Available';
-
-    // Check if current user is subscribed for notifications
-    const savedEmail = localStorage.getItem('userEmail');
-    
-    // Check if user started this machine (is the current user)
-    const isCurrentUser = savedEmail && 
-                         machine.currentUserEmail === savedEmail;
-    
-    // Check if user is subscribed for notifications
-    const isSubscribed = savedEmail && 
-                        machine.notifyUsers && 
-                        machine.notifyUsers.some(user => user.email === savedEmail);
-    
-    // Bell icon classes - green if subscribed, gray with cross if not
-    const bellClass = isSubscribed ? 'subscribed' : 'not-subscribed';
-    
-    // Bell icon SVG (will be green if subscribed, gray with cross if not)
-    const bellIcon = `
-        <div class="notification-bell ${bellClass}" data-machine-id="${machine._id}">
-            ${isSubscribed ? 
-            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-            </svg>` : 
-            `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                <line x1="1" y1="1" x2="23" y2="23"></line>
-            </svg>`}
-        </div>
-    `;
-
-    let timeDisplay = '';
-    if (isActive) {
-        const timeLeft = getTimeLeft(machine.endTime);
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = Math.floor(timeLeft % 60);
-        timeDisplay = `<div class="text-3xl font-bold">${minutes}m <span class="text-xl text-gray-400">${seconds}s</span></div>`;
-    }
-
-    // Format the last used time
-    const lastUsedTime = machine.lastEndTime ? formatTimeSince(machine.lastEndTime) : 'never';
-
-    return `
-        <div class="machine-card ${status}" data-machine-id="${machine._id}">
-            <div class="flex justify-between items-start w-full">
-                <div>
-                    <span class="status-badge ${status} mb-3">${statusText}</span>
-                    <h2 class="text-2xl font-bold mb-4">${machine.name}</h2>
-                    ${isActive ? `
-                        <div class="text-gray-400 mb-4">${timeDisplay}</div>
-                    ` : `
-                        <div class="text-gray-400">Ready to use</div>
-                        <div class="text-sm text-gray-500 mt-2">Last timer ended: ${lastUsedTime}</div>
-                    `}
-                </div>
-                ${bellIcon}
-            </div>
-        </div>
-    `;
-}
-
-// Event Listener Setup
-document.addEventListener('DOMContentLoaded', () => {
-    // Timer modal input validation
-    const timeInput = document.getElementById('timeInput');
-    if (timeInput) {
-        timeInput.addEventListener('input', (e) => {
-            const value = parseInt(e.target.value);
-            const errorMessage = document.getElementById('errorMessage');
-            const startButton = document.getElementById('startButton');
-            
-            if (errorMessage && startButton) {
-                if (value < 5 || value > 90) {
-                    errorMessage.style.display = 'block';
-                    startButton.disabled = true;
-                } else {
-                    errorMessage.style.display = 'none';
-                    startButton.disabled = false;
-                }
-            }
-        });
-    }
-    
-    // Start button in timer modal
-    const startButton = document.getElementById('startButton');
-    if (startButton) {
-        startButton.addEventListener('click', startMachine);
-    }
-    
-    // Close modals when clicking outside
-    window.addEventListener('click', (e) => {
-        const timerModal = document.getElementById('timerModal');
-        const emailModal = document.getElementById('emailModal');
         
-        if (e.target === timerModal) {
-            timerModal.style.display = 'none';
+        // Only show the error toast on forced updates or if we have no data
+        if (forceUpdate || machineData.length === 0) {
+            showToast('Failed to update machine status', 'error');
         }
-        if (e.target === emailModal) {
-            emailModal.style.display = 'none';
+        
+        // If we have cached data, still update the UI with that
+        if (machineData.length > 0) {
+            updateMachinesUI(machineData);
+        }
+    }
+}
+
+// Update the UI with machine data
+function updateMachinesUI(machines) {
+    if (!machines || machines.length === 0) return;
+    
+    const machinesContainer = document.getElementById('machines');
+    if (!machinesContainer) {
+        console.error('Machines container not found');
+        return;
+    }
+    
+    // Store the current machine cards' toggle states before updating the DOM
+    const currentMachineStates = {};
+    document.querySelectorAll('.machine-card').forEach(card => {
+        const machineId = card.dataset.machineId;
+        const userUnsubscribed = card.getAttribute('data-user-unsubscribed') === 'true';
+        
+        if (machineId) {
+            currentMachineStates[machineId] = { userUnsubscribed };
         }
     });
     
-    // Add toast container to body
-    const toastContainer = document.createElement('div');
-    toastContainer.id = 'toastContainer';
-    toastContainer.className = 'toast-container';
-    document.body.appendChild(toastContainer);
-});
-
-// PWA Installation Prompt
-document.addEventListener('DOMContentLoaded', () => {
-    // Only show the prompt if we're not already in standalone mode
-    // and if the user hasn't dismissed it before
-    if (!window.matchMedia('(display-mode: standalone)').matches && 
-        !localStorage.getItem('installPromptDismissed')) {
+    // Create HTML for all machines
+    machinesContainer.innerHTML = machines.map(machine => 
+        createMachineHTML(machine, currentMachineStates[machine._id])
+    ).join('');
+    
+    // Update the last updated timestamp
+    updateLastUpdated();
+    
+    // Add click handlers to machine cards
+    document.querySelectorAll('.machine-card').forEach(card => {
+        const machineId = card.dataset.machineId;
+        const machine = machines.find(m => m._id === machineId);
         
-        // Check if it's a mobile device
-        const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        
-        if (isMobile) {
-            // Detect iOS (Safari)
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-            
-            // Create the modal element
-            const modal = document.createElement('div');
-            modal.id = 'installModal';
-            modal.className = 'modal';
-            modal.style.display = 'flex';
-            
-            // Different content based on platform
-            if (isIOS) {
-                modal.innerHTML = `
-                    <div class="modal-content">
-                        <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-                        <h2 class="text-2xl font-bold mb-4">Install This App</h2>
-                        <p class="mb-4 text-gray-300">Add Flint Laundry to your home screen for quick access.</p>
-                        <div class="bg-black rounded-lg p-4 mb-6">
-                            <p class="text-gray-300 mb-2">1. Tap the share icon</p>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-blue-400">
-                                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                                <polyline points="16 6 12 2 8 6"></polyline>
-                                <line x1="12" y1="2" x2="12" y2="15"></line>
-                            </svg>
-                            <p class="text-gray-300 mb-2 mt-2">2. Scroll and tap "Add to Home Screen"</p>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-green-400">
-                                <path d="M12 5v14"></path>
-                                <path d="M5 12h14"></path>
-                            </svg>
-                        </div>
-                        <div class="modal-buttons">
-                            <button id="dismissInstallButton" 
-                                    class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                `;
-            } else {
-                // Android or other devices
-                modal.innerHTML = `
-                    <div class="modal-content">
-                        <button class="modal-close absolute top-4 right-4 text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
-                        <h2 class="text-2xl font-bold mb-4">Install This App</h2>
-                        <p class="mb-4 text-gray-300">Add Flint Laundry to your home screen for quick access:</p>
-                        
-                        <div id="androidInstructions" class="bg-black rounded-lg p-4 mb-6">
-                            <p class="text-gray-300 mb-2">1. Tap the menu icon</p>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-blue-400">
-                                <line x1="3" y1="12" x2="21" y2="12"></line>
-                                <line x1="3" y1="6" x2="21" y2="6"></line>
-                                <line x1="3" y1="18" x2="21" y2="18"></line>
-                            </svg>
-                            <p class="text-gray-300 mb-2 mt-2">2. Select "Install app" or "Add to Home screen"</p>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 inline-block text-green-400">
-                                <path d="M12 5v14"></path>
-                                <path d="M5 12h14"></path>
-                            </svg>
-                        </div>
-                        
-                        <div class="modal-buttons">
-                            <button id="installPWAButton" 
-                                    class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors mb-2">
-                                Install Now
-                            </button>
-                            <button id="dismissInstallButton" 
-                                    class="bg-gray-700 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            document.body.appendChild(modal);
-            
-            // Close button functionality
-            modal.querySelector('.modal-close').addEventListener('click', () => {
-                modal.style.display = 'none';
-                localStorage.setItem('installPromptDismissed', 'true');
-            });
-            
-            // Dismiss button functionality
-            document.getElementById('dismissInstallButton').addEventListener('click', () => {
-                modal.style.display = 'none';
-                localStorage.setItem('installPromptDismissed', 'true');
-            });
-            
-            // Install button for Android (uses the beforeinstallprompt event)
-            const installButton = document.getElementById('installPWAButton');
-            if (installButton && window.deferredPrompt) {
-                installButton.addEventListener('click', async () => {
-                    if (window.deferredPrompt) {
-                        window.deferredPrompt.prompt();
-                        const { outcome } = await window.deferredPrompt.userChoice;
-                        if (outcome === 'accepted') {
-                            console.log('User accepted the installation');
-                            modal.style.display = 'none';
-                        }
-                        window.deferredPrompt = null;
-                    } else {
-                        // Show manual instructions if the install prompt isn't available
-                        document.getElementById('androidInstructions').style.display = 'block';
-                    }
-                });
-            } else if (installButton) {
-                // If no deferred prompt is available, hide the install button
-                installButton.style.display = 'none';
-            }
-            
-            // Close modal when clicking outside of it
-            window.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    modal.style.display = 'none';
-                    localStorage.setItem('installPromptDismissed', 'true');
-                }
-            });
+        if (machine) {
+            card.addEventListener('click', () => handleMachineClick(machine));
         }
-    }
-});
+    });
+    
+    // Add click handlers to notification bells
+    document.querySelectorAll('.notification-bell').forEach(bell => {
+        const machineId = bell.dataset.machineId;
+        bell.addEventListener('click', (e) => toggleNotification(e, machineId));
+    });
+}
+
+// Initialize the app when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', initializeApp);
