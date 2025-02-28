@@ -1228,3 +1228,27 @@ document.addEventListener('DOMContentLoaded', () => {
     // Then run the PWA installation helper
     setTimeout(improvePWAInstallation, 1000);
 });
+
+// Simple event listener test (add at the end of your file)
+setTimeout(() => {
+    const installBtn = document.getElementById('pwa-install-button');
+    const dismissBtn = document.getElementById('pwa-dismiss-button');
+    
+    if (installBtn) {
+        installBtn.addEventListener('click', () => {
+            console.log('TEST: Install button clicked!');
+            alert('Install button works!');
+        });
+    } else {
+        console.error('Install button not found in DOM');
+    }
+    
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            console.log('TEST: Dismiss button clicked!');
+            alert('Dismiss button works!');
+        });
+    } else {
+        console.error('Dismiss button not found in DOM');
+    }
+}, 2000);
