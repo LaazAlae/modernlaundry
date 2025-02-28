@@ -1077,3 +1077,40 @@ function initializeApp() {
         });
     }
 }
+
+// Safer PWA installation helper
+function improvePWAInstallation() {
+    try {
+        // Track whether the app was launched from homescreen
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            console.log("App running in standalone mode (installed)");
+            localStorage.setItem('pwa-installed', 'true');
+        }
+
+        // Show installation instruction if not installed
+        if (!window.matchMedia('(display-mode: standalone)').matches && 
+            !localStorage.getItem('pwa-install-dismissed')) {
+            
+            // Show instructions after 3 seconds
+            setTimeout(() => {
+                const installPrompt = document.getElementById('pwa-install-prompt');
+                // Only proceed if the element exists
+                if (installPrompt) {
+                    installPrompt.style.display = 'block';
+                }
+            }, 3000);
+        }
+    } catch (error) {
+        console.error("Error in PWA installation helper:", error);
+        // Error is caught, so execution will continue
+    }
+}
+
+// Call this function when the page loads, but AFTER other critical functions
+document.addEventListener('DOMContentLoaded', () => {
+    // Run critical app initialization first
+    fetchAndUpdateMachines();
+    
+    // Then run the PWA installation helper
+    setTimeout(improvePWAInstallation, 1000);
+});
