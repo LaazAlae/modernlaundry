@@ -14,6 +14,10 @@ const ASSETS_TO_CACHE = [
 // Shell assets to prioritize for instant loading
 const SHELL_ASSETS = ['/', '/index.html', '/styles.css'];
 
+const API_ENDPOINTS = [
+  '/api/machines'
+];
+
 // Install Service Worker - With prioritized shell caching
 self.addEventListener('install', (event) => {
   // Use waitUntil to tell the browser that installation is not complete
@@ -60,6 +64,24 @@ self.addEventListener('activate', (event) => {
 
 // Improved fetch strategy - Cache-first for static assets, Network-first for dynamic content
 self.addEventListener('fetch', (event) => {
+  // For API endpoints, use stale-while-revalidate
+  if (API_ENDPOINTS.some(endpoint => event.request.url.includes(endpoint))) {
+    event.respondWith(
+      caches.open(CACHE_NAME).then(cache => {
+        return fetch(event.request)
+          .then(networkResponse => {
+            // Cache the fresh response
+            cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          })
+          .catch(() => {
+            // Return cached version if network fails
+            return caches.match(event.request);
+          });
+      })
+    );
+    return;
+  }
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
   
