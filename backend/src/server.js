@@ -23,7 +23,7 @@ app.use(helmet({
 }));
 
 // Serve static files from frontend/public directory
-app.use(express.static('/frontend/public'));
+app.use(express.static(path.join(__dirname, '../../frontend/public')));
 
 // Email configuration
 const transporter = nodemailer.createTransport({
@@ -365,13 +365,7 @@ app.post('/api/machines/:id/unsubscribe', validationMiddleware.validateUnsubscri
 });
 // Catch-all route to return the main index.html
 app.get('*', (req, res) => {
-    // Skip API routes
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ error: 'API route not found' });
-    }
-    
-    // Serve index.html for all other routes
-    res.sendFile('/frontend/public/index.html');
+    res.sendFile(path.join(__dirname, '../../frontend/public/index.html'));
 });
 
 // MongoDB connection - Use environment variable or fallback
