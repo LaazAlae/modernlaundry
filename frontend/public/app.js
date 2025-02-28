@@ -1078,6 +1078,120 @@ function initializeApp() {
     }
 }
 
+// Complete PWA installation handler with proper event listeners
+function setupPWAInstallation() {
+    // Get the DOM elements
+    const installPrompt = document.getElementById('pwa-install-prompt');
+    const installButton = document.getElementById('pwa-install-button');
+    const dismissButton = document.getElementById('pwa-dismiss-button');
+    
+    // Store the deferredPrompt event
+    let deferredPrompt;
+    
+    // 1. Listen for beforeinstallprompt event
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('beforeinstallprompt event fired');
+        // Prevent Chrome 67+ from automatically showing the prompt
+        e.preventDefault();
+        // Stash the event so it can be triggered later
+        deferredPrompt = e;
+        
+        // Show the install prompt if not dismissed before
+        if (!localStorage.getItem('pwa-install-dismissed') && installPrompt) {
+            setTimeout(() => {
+                installPrompt.style.display = 'block';
+            }, 3000);
+        }
+    });
+    
+    // 2. Install button click handler
+    if (installButton) {
+        console.log('Adding click handler to install button');
+        installButton.addEventListener('click', async () => {
+            console.log('Install button clicked');
+            
+            // Hide the prompt
+            if (installPrompt) {
+                installPrompt.style.display = 'none';
+            }
+            
+            // Show the browser install prompt
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                
+                // Wait for the user to respond
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log(`User response to install prompt: ${outcome}`);
+                
+                // Clear the saved prompt
+                deferredPrompt = null;
+                
+                // If installed, save to localStorage
+                if (outcome === 'accepted') {
+                    localStorage.setItem('pwa-installed', 'true');
+                }
+            } else {
+                console.log('No deferred prompt available - browser may not support installation');
+                // Show manual installation instructions for iOS
+                alert('To install this app: tap the share button and then "Add to Home Screen"');
+            }
+        });
+    }
+    
+    // 3. Dismiss button click handler
+    if (dismissButton) {
+        console.log('Adding click handler to dismiss button');
+        dismissButton.addEventListener('click', () => {
+            console.log('Dismiss button clicked');
+            
+            // Hide the prompt
+            if (installPrompt) {
+                installPrompt.style.display = 'none';
+            }
+            
+            // Remember that user dismissed it
+            localStorage.setItem('pwa-install-dismissed', 'true');
+        });
+    }
+    
+    // 4. Check if app is already in standalone mode
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('App is running in standalone mode (already installed)');
+        localStorage.setItem('pwa-installed', 'true');
+        
+        // Hide the install prompt if showing
+        if (installPrompt) {
+            installPrompt.style.display = 'none';
+        }
+    }
+    
+    // 5. Listen for successful installation
+    window.addEventListener('appinstalled', (event) => {
+        console.log('App was successfully installed');
+        localStorage.setItem('pwa-installed', 'true');
+        
+        // Hide the install prompt if showing
+        if (installPrompt) {
+            installPrompt.style.display = 'none';
+        }
+    });
+}
+
+// Call setup function when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize critical app features first
+    try {
+        fetchAndUpdateMachines();
+    } catch (e) {
+        console.error('Error initializing machines:', e);
+    }
+    
+    // Then set up PWA installation (non-critical)
+    setTimeout(setupPWAInstallation, 1000);
+});
+
+
+
 // Safer PWA installation helper
 function improvePWAInstallation() {
     try {
