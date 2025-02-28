@@ -1205,14 +1205,14 @@ function improvePWAInstallation() {
         if (!window.matchMedia('(display-mode: standalone)').matches && 
             !localStorage.getItem('pwa-install-dismissed')) {
             
-            // Show instructions after 3 seconds
+            // Show instructions after 7 seconds
             setTimeout(() => {
                 const installPrompt = document.getElementById('pwa-install-prompt');
                 // Only proceed if the element exists
                 if (installPrompt) {
                     installPrompt.style.display = 'block';
                 }
-            }, 3000);
+            }, 7000);
         }
     } catch (error) {
         console.error("Error in PWA installation helper:", error);
@@ -1266,35 +1266,3 @@ document.addEventListener('DOMContentLoaded', () => {
     fixModalCloseButtons();
 });
 
-// Call this function when the page loads, but AFTER other critical functions
-document.addEventListener('DOMContentLoaded', () => {
-    // Run critical app initialization first
-    fetchAndUpdateMachines();
-    
-    // Then run the PWA installation helper
-    setTimeout(improvePWAInstallation, 1000);
-});
-
-// Simple event listener test (add at the end of your file)
-setTimeout(() => {
-    const installBtn = document.getElementById('pwa-install-button');
-    const dismissBtn = document.getElementById('pwa-dismiss-button');
-    
-    if (installBtn) {
-        installBtn.addEventListener('click', () => {
-            console.log('TEST: Install button clicked!');
-            alert('Install button works!');
-        });
-    } else {
-        console.error('Install button not found in DOM');
-    }
-    
-    if (dismissBtn) {
-        dismissBtn.addEventListener('click', () => {
-            console.log('TEST: Dismiss button clicked!');
-            alert('Dismiss button works!');
-        });
-    } else {
-        console.error('Dismiss button not found in DOM');
-    }
-}, 2000);
