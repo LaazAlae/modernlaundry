@@ -1220,6 +1220,52 @@ function improvePWAInstallation() {
     }
 }
 
+
+// Fix for modal close buttons
+function fixModalCloseButtons() {
+    console.log("Setting up modal close buttons");
+    
+    // Get all modals
+    const modals = document.querySelectorAll('.modal');
+    
+    // For each modal, set up closing mechanisms
+    modals.forEach(modal => {
+        const closeButtons = modal.querySelectorAll('.modal-close');
+        
+        // Add click event to each close button
+        closeButtons.forEach(button => {
+            // Remove any existing event listeners by cloning and replacing
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            // Add a new click listener
+            newButton.addEventListener('click', (event) => {
+                console.log("Close button clicked");
+                event.preventDefault();
+                event.stopPropagation(); // Prevent event bubbling
+                modal.style.display = 'none';
+            });
+        });
+        
+        // Also close modal when clicking outside (keep your existing functionality)
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+    });
+    
+    console.log("Modal close buttons initialized");
+}
+
+// Call this when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    // Call your existing initialization functions
+    
+    // Then fix the modal close buttons
+    fixModalCloseButtons();
+});
+
 // Call this function when the page loads, but AFTER other critical functions
 document.addEventListener('DOMContentLoaded', () => {
     // Run critical app initialization first
