@@ -69,7 +69,7 @@ function createMachineHTML(machine, savedState) {
             </div>
         </div>
     `;
-}const API_URL = 'https://your-backend-name.onrender.com/api';
+}const API_URL = '/api';
 let deferredPrompt;
 
 const MACHINES = {
